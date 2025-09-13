@@ -1,0 +1,263 @@
+# diagnoVet - Sistema de Gestión de Reportes Veterinarios
+# Cursor AI Rules & Context
+
+## Project Brief
+**Objective:** Web application for processing veterinary study reports
+
+**Requirements:**
+- Upload one or more veterinary study reports
+- Extract and normalize key information:
+  - Patient (name, species, breed, age, weight)
+  - Owner/tutor
+  - Veterinarian (name, license, clinic)
+  - Observations/findings
+  - Main diagnosis
+  - Differential diagnoses
+  - Recommendations/treatment
+  - Associated images
+- Store extracted data in database
+- Simple interface to visualize and navigate information
+
+**Evaluation Criteria:**
+- Accurate data extraction
+- Consistent normalization
+- Clear and usable interface
+- Intuitive navigation
+
+## Tech Stack
+- Frontend: React 19, TypeScript, Vite, Tailwind CSS, Shadcn/ui
+- Backend: Node.js, Express, TypeScript, Prisma ORM
+- Database: PostgreSQL (Neon)
+- Storage: Cloudinary
+- AI/OCR: Tesseract.js, Hugging Face
+- Deploy: Vercel (frontend), Railway (backend)
+
+## Project Structure
+```
+diagnovet-challenge/
+├── .cursor/
+│   └── rules/
+│       └── .cursorrules 
+├── frontend/ # React application
+├── backend/ # Node.js + Express API
+├── shared/ # Shared types and utilities
+├── package.json # Root package.json with scripts
+├── tsconfig.json # Root TypeScript config
+├── .env.example # Environment variables template
+└── README.md
+
+diagnovet-challenge/frontend/
+  ├── src/
+  │   ├── components/ui/     # Shadcn/ui components
+  │   ├── components/       # Custom components
+  │   ├── pages/           # Page components
+  │   ├── hooks/           # Custom React hooks
+  │   ├── services/        # API calls
+  │   ├── store/           # Zustand store
+  │   ├── types/           # TypeScript definitions
+  │   ├── utils/           # Helper functions
+  │   └── lib/             # Configurations
+  ├── package.json
+  ├── tsconfig.json
+  └── vite.config.ts
+
+diagnovet-challenge/backend/
+  ├── src/
+  │   ├── controllers/     # Route handlers
+  │   ├── services/        # Business logic
+  │   ├── repositories/    # Data access layer
+  │   ├── models/          # Domain entities
+  │   ├── middleware/      # Express middleware
+  │   ├── routes/          # API routes
+  │   ├── utils/           # Helper functions
+  │   └── config/          # App configuration
+  ├── prisma/
+  │ ├── schema.prisma # Database schema
+  │ └── migrations/ # DB migrations
+  ├── package.json
+  └── tsconfig.json
+
+diagnovet-challenge/shared/
+  ├── types/ # Shared TypeScript types
+  ├── utils/ # Shared utility functions
+  ├── constants/ # Shared constants
+  ├── validators/ # Shared Zod schemas
+  └── package.json
+```
+
+## Code Style & Conventions
+
+### TypeScript
+- Use strict TypeScript configuration
+- Prefer interfaces over types for object shapes
+- Use proper return types for all functions
+- Avoid 'any' type, use proper typing
+
+### React
+- Use functional components with hooks
+- Prefer named exports over default exports
+- Use custom hooks for shared logic
+- Follow component composition patterns
+
+### File Naming
+- Components: PascalCase (e.g., `ReportCard.tsx`)
+- Hooks: camelCase starting with 'use' (e.g., `useReports.ts`)
+- Utils: camelCase (e.g., `formatDate.ts`)
+- Types: PascalCase (e.g., `VeterinaryReport.ts`)
+
+### API Conventions
+- REST endpoints follow: `/api/v1/resource`
+- HTTP methods: GET, POST, PUT, DELETE
+- Response format: `{ success: boolean, data?: any, error?: string }`
+- Use proper HTTP status codes
+
+## Domain Model
+
+### Core Entities
+```typescript
+interface VeterinaryReport {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+
+  // Metadatos del archivo
+  filename: string;
+  fileUrl: string;
+  uploadDate: Date;
+  
+  // Estado del procesamiento
+  status: 'PROCESSING' | 'COMPLETED' | 'ERROR' | 'NEEDS_REVIEW';
+  confidence?: number; // 0-100 Confianza del OCR/extracción
+
+  
+  // Contenido clínico
+  findings?: string;        // "Se observa", "Hallazgos"
+  diagnosis?: string;       // Diagnóstico principal
+  differentials: string[];  // Diagnósticos diferenciales
+  recommendations: string[]; // Recomendaciones/tratamiento
+  measurements?: any;       // Mediciones específicas (eco, etc)
+  images?: string[];
+
+  // Texto completo extraído
+  extractedText?: string;
+
+  patient: {
+    name: string;
+    species: string;
+    breed?: string;
+    age?: string;
+    weight?: string;
+    owner: string;
+  };
+  
+  veterinarian: {
+    id: string;
+  
+    // Información profesional
+    name: string;        // "Dr. Carlos Mendoza", "M.V. Martin Vittaz"
+    license?: string;    // "MV-2145", "Mat. 429"
+    title?: string;      // "M.V.", "Dr.", etc.
+    
+    // Información de la clínica
+    clinic?: string;     // "Centro Oncológico Veterinario"
+    contact?: string;    // Teléfono si aparece
+    
+    // Información de derivación
+    referredBy?: string; // "Dra. Gerbero", "Ghersevich Carolina"
+  };
+  
+  study: {
+    id: string;
+    type: string;
+    date: Date;
+    technique?: string;    // "RX sin sedación", "Digital", etc.
+    bodyRegion?: string;   // "Tórax", "Húmero derecho", "Cuello"
+    incidences: string[];  // "latero-lateral derecha", "ventro-dorsal"
+    equipment?: string;    // Si aparece
+    
+    // Datos específicos por tipo de estudio
+    echoData?: any;        // Para ecocardiografías (mediciones específicas)
+  };
+  
+}
+```
+
+## UI/UX Guidelines
+- Use Tailwind utility classes
+- Follow Shadcn/ui component patterns
+- Responsive design (mobile-first)
+- Accessible components (proper ARIA labels)
+- Dark/light mode support
+- Professional veterinary color scheme
+
+## External Libraries & APIs
+- Prisma for database operations
+- Zod for validation
+- React Hook Form for forms
+- Tesseract.js for OCR (client-side)
+- Cloudinary for file uploads
+- Hugging Face for AI text processing
+
+## Error Handling
+- Use try-catch blocks for async operations
+- Provide meaningful error messages
+- Log errors appropriately
+- Show user-friendly error states in UI
+
+## Performance
+- Lazy load components when appropriate
+- Optimize images with Cloudinary
+- Use React.memo for expensive components
+- Implement proper loading states
+
+## Security
+- Validate all inputs with Zod
+- Sanitize file uploads
+- Use environment variables for secrets
+- Implement proper CORS configuration
+
+## Testing (when applicable)
+- Unit tests for utility functions
+- Component tests for UI components
+- API tests for backend endpoints
+
+## Comments & Documentation
+- **Code comments in Spanish** - For better team understanding
+- **Variable/function names in English** - Following industry standards
+- **UI text in Spanish** - For end users
+- **API documentation in English** - For technical reference
+- Use JSDoc for function documentation
+- Add comments for complex business logic
+- Keep README files updated
+- Document API endpoints
+
+## Deployment
+- Frontend: Vercel with automatic deployments
+- Backend: Railway with PostgreSQL addon
+- Use environment variables for configuration
+- Implement proper CI/CD practices
+
+## AI Processing Notes
+- OCR runs client-side with Tesseract.js
+- Use Hugging Face models for text analysis
+- Implement fallback regex patterns for data extraction
+- Store processing confidence scores
+
+**OCR Confidence Thresholds:**
+- High confidence (>80%): Auto-process
+- Medium confidence (50-80%): Flag for review
+- Low confidence (<50%): Manual review required
+
+**Data Extraction Patterns:**
+- Patient info: "Paciente:", "Nombre:", "Especie:"
+- Veterinarian: "Dr.", "M.V.", "Veterinario:"
+- Diagnosis: "Diagnóstico:", "Impresión:"
+- Findings: "Hallazgos:", "Se observa:"
+- Recommendations: "Recomendaciones:", "Tratamiento:"
+
+When suggesting code changes or new features:
+1. Follow the established patterns
+2. Consider the free tier limitations
+3. Prioritize performance and user experience
+4. Ensure TypeScript compliance
+5. Follow the domain model structure
