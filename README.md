@@ -109,6 +109,8 @@ npm run dev:backend   # Puerto 5000
 diagnovet-challenge/
 ├── frontend/                 # Aplicación React
 │   ├── src/
+│   │   ├── assets/          # Recursos estáticos
+│   │   │   └── images/      # Imágenes del proyecto
 │   │   ├── components/       # Componentes personalizados
 │   │   │   └── ui/          # Componentes Shadcn/ui
 │   │   ├── pages/           # Páginas de la aplicación
