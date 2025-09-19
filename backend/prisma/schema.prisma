@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model VeterinaryReport {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Metadatos del archivo
+  filename  String
+  fileUrl   String
+  uploadDate DateTime @default(now())
+  
+  // Estado del procesamiento
+  status    ProcessingStatus @default(PROCESSING)
+  confidence Float? // 0-100 Confianza del OCR/extracción
+
+  // Contenido clínico
+  findings        String?
+  diagnosis       String?
+  differentials   String[]
+  recommendations String[]
+  measurements    Json?
+  images          String[]
+
+  // Texto completo extraído
+  extractedText   String?
+
+  // Relaciones
+  patientId       String
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  veterinarianId  String
+  veterinarian    Veterinarian @relation(fields: [veterinarianId], references: [id], onDelete: Cascade)
+  
+  studyId         String
+  study           Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+
+  @@map("veterinary_reports")
+}
+
+model Patient {
+  id      String @id @default(cuid())
+  name    String
+  species String
+  breed   String?
+  age     String?
+  weight  String?
+  owner   String
+
+  // Relaciones
+  reports VeterinaryReport[]
+
+  @@map("patients")
+}
+
+model Veterinarian {
+  id        String @id @default(cuid())
+  name      String
+  license   String?
+  title     String?
+  clinic    String?
+  contact   String?
+  referredBy String?
+
+  // Relaciones
+  reports   VeterinaryReport[]
+
+  @@map("veterinarians")
+}
+
+model Study {
+  id         String @id @default(cuid())
+  type       String
+  date       DateTime
+  technique  String?
+  bodyRegion String?
+  incidences String[]
+  equipment  String?
+  echoData   Json?
+
+  // Relaciones
+  reports    VeterinaryReport[]
+
+  @@map("studies")
+}
+
+enum ProcessingStatus {
+  PROCESSING
+  COMPLETED
+  ERROR
+  NEEDS_REVIEW
+}
