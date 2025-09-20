@@ -60,6 +60,7 @@ model Patient {
   // Relaciones
   reports VeterinaryReport[]
 
+  @@unique([name, species, owner], name: "name_species_owner")
   @@map("patients")
 }
 
@@ -75,6 +76,7 @@ model Veterinarian {
   // Relaciones
   reports   VeterinaryReport[]
 
+  @@unique([name, license], name: "name_license")
   @@map("veterinarians")
 }
 

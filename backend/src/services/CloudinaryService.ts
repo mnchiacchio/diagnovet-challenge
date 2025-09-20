@@ -1,6 +1,19 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryConfig } from '../config/cloudinary';
 
+// Interfaz para el resultado de upload de Cloudinary
+interface CloudinaryUploadResult {
+  public_id: string;
+  secure_url: string;
+  url: string;
+  width?: number;
+  height?: number;
+  format: string;
+  resource_type: string;
+  bytes: number;
+  created_at: string;
+}
+
 export class CloudinaryService {
   constructor() {
     // Configurar Cloudinary
@@ -12,7 +25,7 @@ export class CloudinaryService {
   }
 
   // Subir archivo a Cloudinary
-  async uploadFile(file: Express.Multer.File) {
+  async uploadFile(file: Express.Multer.File): Promise<CloudinaryUploadResult> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -28,7 +41,7 @@ export class CloudinaryService {
           if (error) {
             reject(error);
           } else {
-            resolve(result);
+            resolve(result as CloudinaryUploadResult);
           }
         }
       );
