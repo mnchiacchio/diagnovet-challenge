@@ -4,22 +4,16 @@ Una aplicación web moderna que utiliza inteligencia artificial para procesar, e
 
 ## 📋 Descripción
 
-diagnoVET es una solución completa que permite a los veterinarios subir reportes de estudios médicos (radiografías, ecografías, análisis, etc.) y extraer automáticamente información clave como datos del paciente, diagnóstico, recomendaciones y más, utilizando tecnologías de OCR y procesamiento de lenguaje natural.
+diagnoVET es una solución completa que permite a los veterinarios subir reportes de estudios médicos (radiografías, ecografías, análisis, etc.) y extraer automáticamente información clave como datos del paciente, diagnóstico, recomendaciones y más, utilizando inteligencia artificial.
 
 ## ✨ Características Principales
 
-- **📤 Carga de Archivos**: Subida de múltiples reportes en formatos PDF e imágenes
-- **🤖 Extracción Inteligente**: OCR con Tesseract.js y procesamiento con IA
-- **📊 Normalización de Datos**: Extracción automática de:
-  - Información del paciente (nombre, especie, raza, edad, peso)
-  - Datos del veterinario (nombre, matrícula, clínica)
-  - Diagnósticos y hallazgos
-  - Recomendaciones y tratamientos
-  - Imágenes asociadas
+- **📤 Carga de Archivos**: Subida de múltiples reportes en formato PDF
+- **🤖 Extracción Inteligente**: Procesamiento automático con IA para extraer datos estructurados
+- **📊 Gestión de Datos**: Extracción automática de información del paciente, veterinario, diagnósticos y recomendaciones
 - **💾 Almacenamiento Seguro**: Base de datos PostgreSQL con Prisma ORM
 - **🎨 Interfaz Moderna**: UI responsive con React 19 y Tailwind CSS
-- **🔍 Búsqueda y Filtrado**: Navegación intuitiva de reportes
-- **📈 Sistema de Confianza**: Scoring de calidad de extracción
+- **🔍 Búsqueda y Filtrado**: Sistema de búsqueda y filtros avanzados
 
 ## 🛠️ Stack Tecnológico
 
@@ -39,9 +33,9 @@ diagnoVET es una solución completa que permite a los veterinarios subir reporte
 - **PostgreSQL** - Base de datos (Neon)
 
 ### IA y Procesamiento
-- **Tesseract.js** - OCR client-side
-- **Hugging Face** - Modelos de IA
-- **Cloudinary** - Almacenamiento de archivos
+- **pdf-parse** - Extracción de texto de PDFs
+- **OpenRouter.ai** - Modelos de IA (Llama 3.3)
+- **Cloudinary** - Almacenamiento de archivos PDF
 
 ### Herramientas de Desarrollo
 - **Concurrently** - Ejecución paralela de scripts
@@ -55,6 +49,7 @@ diagnoVET es una solución completa que permite a los veterinarios subir reporte
 - npm o yarn
 - Cuenta en Neon (PostgreSQL)
 - Cuenta en Cloudinary
+- Cuenta en OpenRouter.ai (para IA)
 
 ### 1. Clonar el repositorio
 ```bash
@@ -77,6 +72,9 @@ DATABASE_URL="postgresql://..."
 CLOUDINARY_CLOUD_NAME="tu_cloud_name"
 CLOUDINARY_API_KEY="tu_api_key"
 CLOUDINARY_API_SECRET="tu_api_secret"
+OPENROUTER_API_KEY="tu_openrouter_key"
+OPENROUTER_MODEL="meta-llama/llama-3.3-8b-instruct:free"
+LLM_PROVIDER="openrouter"
 ```
 
 ### 4. Configurar base de datos
@@ -128,7 +126,8 @@ diagnovet-challenge/
 │   ├── src/
 │   │   ├── controllers/     # Manejadores de rutas
 │   │   ├── services/        # Lógica de negocio
-│   │   ├── repositories/    # Capa de acceso a datos
+│   │   ├── interfaces/      # Interfaces para servicios LLM
+│   │   ├── factories/       # Factory pattern para servicios
 │   │   ├── models/          # Entidades del dominio
 │   │   ├── middleware/      # Middleware de Express
 │   │   ├── routes/          # Rutas de API
@@ -187,14 +186,13 @@ npm run db:push         # Sincronizar esquema con BD
 ## 🎯 Uso de la Aplicación
 
 ### 1. Cargar Reportes
-- Arrastra y suelta archivos PDF o imágenes
+- Arrastra y suelta archivos PDF
 - Selecciona múltiples archivos simultáneamente
 - Visualiza el progreso de carga
 
 ### 2. Procesamiento Automático
-- OCR extrae texto de las imágenes
+- Extracción de texto de PDFs
 - IA analiza y estructura la información
-- Sistema de confianza evalúa la calidad
 
 ### 3. Revisión y Edición
 - Revisa datos extraídos automáticamente
@@ -202,26 +200,21 @@ npm run db:push         # Sincronizar esquema con BD
 - Confirma reportes procesados
 
 ### 4. Navegación y Búsqueda
-- Lista de todos los reportes
-- Filtros por fecha, paciente, veterinario
-- Búsqueda por texto libre
-- Vista detallada de cada reporte
+- Lista de todos los reportes con paginación
+- Búsqueda y filtros por múltiples criterios
+- Vista detallada de cada reporte con descarga de PDF original
 
-## 🔍 Patrones de Extracción
+## 🔍 Extracción Inteligente con IA
 
-La aplicación reconoce automáticamente patrones comunes en reportes veterinarios:
+La aplicación utiliza inteligencia artificial para extraer automáticamente información estructurada de reportes veterinarios:
 
-- **Paciente**: "Paciente:", "Nombre:", "Especie:"
-- **Veterinario**: "Dr.", "M.V.", "Veterinario:"
-- **Diagnóstico**: "Diagnóstico:", "Impresión:"
-- **Hallazgos**: "Hallazgos:", "Se observa:"
-- **Recomendaciones**: "Recomendaciones:", "Tratamiento:"
+### Datos Extraídos:
+- **Paciente**: Nombre, especie, raza, edad, peso, propietario
+- **Veterinario**: Nombre, matrícula, título, clínica, contacto
+- **Estudio**: Tipo, fecha, técnica, región corporal, equipamiento
+- **Clínico**: Hallazgos, diagnóstico, diagnósticos diferenciales, recomendaciones
+- **Mediciones**: Peso, temperatura, frecuencia cardíaca, datos ecográficos
 
-## 📊 Sistema de Confianza
-
-- **Alta confianza (>80%)**: Procesamiento automático
-- **Confianza media (50-80%)**: Marcado para revisión
-- **Baja confianza (<50%)**: Revisión manual requerida
 
 ## 🚀 Despliegue
 
@@ -264,9 +257,9 @@ Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) par
 
 ## 🙏 Agradecimientos
 
-- [Tesseract.js](https://tesseract.projectnaptha.com/) por el OCR
-- [Hugging Face](https://huggingface.co/) por los modelos de IA
-- [Shadcn/ui](https://ui.shadcn.com/) por los componentes
+- [OpenRouter.ai](https://openrouter.ai/) por los modelos de IA
+- [Cloudinary](https://cloudinary.com/) por el almacenamiento de archivos
+- [Shadcn/ui](https://ui.shadcn.com/) por los componentes de UI
 - [Prisma](https://prisma.io/) por el ORM
 - [Vercel](https://vercel.com/) y [Railway](https://railway.app/) por el hosting
 
