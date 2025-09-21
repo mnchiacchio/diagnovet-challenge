@@ -8,18 +8,13 @@ const storage = multer.memoryStorage();
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Tipos de archivo permitidos
   const allowedTypes = [
-    'image/jpeg',
-    'image/jpg', 
-    'image/png',
-    'image/gif',
-    'image/webp',
     'application/pdf'
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, GIF, WebP) y PDFs.'));
+    cb(new Error('Tipo de archivo no permitido. Solo se permiten PDFs.'));
   }
 };
 

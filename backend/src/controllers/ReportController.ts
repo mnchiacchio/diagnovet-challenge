@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { ReportService } from '../services/ReportService';
 import { CreateReportDto, UpdateReportDto } from '../models/ReportDto';
+import { ReportQueryParams } from '../types/prisma';
+import { logger } from '@backend/utils/Logger';
 
 export class ReportController {
   private reportService = new ReportService();
@@ -8,30 +10,30 @@ export class ReportController {
   // Obtener todos los reportes con paginación y filtros
   async getAllReports(req: Request, res: Response) {
     try {
-      const { page = 1, limit = 10, status, search } = req.query;
+      logger.info('Obteniendo todos los reportes');
+      const queryParams: ReportQueryParams = req.query as ReportQueryParams;
       
-      const reports = await this.reportService.getAllReports({
-        page: Number(page),
-        limit: Number(limit),
-        status: status as string,
-        search: search as string
-      });
+      // Validar y convertir query parameters
+      const validatedParams = this.reportService.validateQueryParams(queryParams);
+      
+      const reports = await this.reportService.getAllReports(validatedParams);
 
       res.json({
         success: true,
         data: reports
       });
     } catch (error) {
-      console.error('Error al obtener reportes:', error);
+      
       res.status(500).json({
         success: false,
-        error: 'Error al obtener los reportes'
+        error: 'Error al obtener los reportes',
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   }
 
   // Obtener un reporte por ID
-  async getReportById(req: Request, res: Response) {
+  getReportById = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const report = await this.reportService.getReportById(id);
@@ -48,7 +50,7 @@ export class ReportController {
         data: report
       });
     } catch (error) {
-      console.error('Error al obtener reporte:', error);
+      logger.error('Error al obtener reporte:', error);
       res.status(500).json({
         success: false,
         error: 'Error al obtener el reporte'
@@ -56,8 +58,39 @@ export class ReportController {
     }
   }
 
+  // Descargar archivo PDF original del reporte
+  downloadReport = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const report = await this.reportService.getReportById(id);
+      if (!report) {
+        return res.status(404).json({
+          success: false,
+          error: 'Reporte no encontrado'
+        });
+      }
+
+      // Si es una URL de Cloudinary, redirigir
+      if (report.fileUrl.includes('cloudinary.com') || report.fileUrl.includes('res.cloudinary.com')) {
+        return res.redirect(report.fileUrl);
+      }
+
+      // Para archivos locales, enviar el archivo
+      res.download(report.fileUrl, report.filename);
+      
+    } catch (error) {
+      console.error('Error al descargar reporte:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al descargar el archivo',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      });
+    }
+  }
+
   // Crear un nuevo reporte
-  async createReport(req: Request, res: Response) {
+  createReport = async (req: Request, res: Response) => {
     try {
       const reportData: CreateReportDto = req.body;
       const report = await this.reportService.createReport(reportData);
@@ -76,7 +109,7 @@ export class ReportController {
   }
 
   // Actualizar un reporte
-  async updateReport(req: Request, res: Response) {
+  updateReport = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const updateData: UpdateReportDto = req.body;
@@ -104,7 +137,7 @@ export class ReportController {
   }
 
   // Eliminar un reporte
-  async deleteReport(req: Request, res: Response) {
+  deleteReport = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const deleted = await this.reportService.deleteReport(id);
@@ -118,7 +151,8 @@ export class ReportController {
 
       res.json({
         success: true,
-        message: 'Reporte eliminado correctamente'
+        message: 'Reporte eliminado correctamente',
+        data: { id: deleted.id }
       });
     } catch (error) {
       console.error('Error al eliminar reporte:', error);
@@ -130,7 +164,7 @@ export class ReportController {
   }
 
   // Buscar reportes
-  async searchReports(req: Request, res: Response) {
+  searchReports = async (req: Request, res: Response) => {
     try {
       const { query } = req.params;
       const { page = 1, limit = 10 } = req.query;
@@ -154,7 +188,7 @@ export class ReportController {
   }
 
   // Obtener estadísticas
-  async getStats(req: Request, res: Response) {
+  getStats = async (req: Request, res: Response) => {
     try {
       const stats = await this.reportService.getStats();
       

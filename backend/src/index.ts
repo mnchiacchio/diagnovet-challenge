@@ -8,9 +8,23 @@ import { PrismaClient } from '@prisma/client';
 // Importar rutas
 import reportRoutes from './routes/reports';
 import uploadRoutes from './routes/upload';
+import systemRoutes from './routes/system';
+
+// Importar middlewares
+import { errorHandlerMiddleware, notFoundMiddleware } from './middleware/errorHandler';
+import { validateConfig } from './config';
 
 // Cargar variables de entorno
 dotenv.config();
+
+// Validar configuración
+try {
+  validateConfig();
+  console.log('✅ Configuración validada correctamente');
+} catch (error) {
+  console.error('❌ Error en configuración:', error);
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.API_PORT || 5000;
@@ -37,6 +51,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Rutas de la API
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/system', systemRoutes);
 
 // Ruta de salud
 app.get('/api/v1/health', (req, res) => {
@@ -48,21 +63,8 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // Middleware de manejo de errores
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production' ? 'Error interno del servidor' : err.message
-  });
-});
-
-// Ruta 404
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Ruta no encontrada'
-  });
-});
+app.use(notFoundMiddleware);
+app.use(errorHandlerMiddleware);
 
 // Iniciar servidor
 app.listen(PORT, () => {

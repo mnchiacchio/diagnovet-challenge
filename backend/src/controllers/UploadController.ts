@@ -1,13 +1,12 @@
 import { Request, Response } from 'express';
 import { UploadService } from '../services/UploadService';
-import { CloudinaryService } from '../services/CloudinaryService';
+import { logger } from '../utils/Logger';
 
 export class UploadController {
   private uploadService = new UploadService();
-  private cloudinaryService = new CloudinaryService();
 
   // Subir archivos a Cloudinary
-  async uploadFiles(req: Request, res: Response) {
+  uploadFiles = async (req: Request, res: Response) => {
     try {
       const files = req.files as Express.Multer.File[];
       
@@ -17,7 +16,6 @@ export class UploadController {
           error: 'No se proporcionaron archivos'
         });
       }
-
       const uploadResults = await this.uploadService.uploadFiles(files);
       
       res.json({
@@ -26,7 +24,7 @@ export class UploadController {
         message: `${uploadResults.length} archivo(s) subido(s) correctamente`
       });
     } catch (error) {
-      console.error('Error al subir archivos:', error);
+      logger.error('Error al subir archivos:', error);
       res.status(500).json({
         success: false,
         error: 'Error al subir los archivos'
@@ -35,7 +33,7 @@ export class UploadController {
   }
 
   // Procesar archivo con OCR y extracción de datos
-  async processFile(req: Request, res: Response) {
+  processFile = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -47,7 +45,7 @@ export class UploadController {
         message: 'Archivo procesado correctamente'
       });
     } catch (error) {
-      console.error('Error al procesar archivo:', error);
+      logger.error('Error al procesar archivo:', error);
       res.status(500).json({
         success: false,
         error: 'Error al procesar el archivo'
@@ -56,7 +54,7 @@ export class UploadController {
   }
 
   // Obtener estado de procesamiento
-  async getProcessingStatus(req: Request, res: Response) {
+  getProcessingStatus = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -67,11 +65,12 @@ export class UploadController {
         data: status
       });
     } catch (error) {
-      console.error('Error al obtener estado:', error);
+      logger.error('Error al obtener estado:', error);
       res.status(500).json({
         success: false,
         error: 'Error al obtener el estado de procesamiento'
       });
     }
   }
+
 }
