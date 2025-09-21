@@ -9,6 +9,7 @@ import { UploadService } from '@/services/UploadService'
 import { ProcessingStatus } from '@shared/types/VeterinaryReport'
 import { useNavigate } from 'react-router-dom'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useToast } from '@/hooks/use-toast'
 import { FilterSidebar, FilterState } from '@/components/FilterSidebar'
 
 export function Reports() {
@@ -17,6 +18,7 @@ export function Reports() {
   const [searchInput, setSearchInput] = useState('')
   const [processingReports, setProcessingReports] = useState<Set<string>>(new Set())
   const [deletingReports, setDeletingReports] = useState<Set<string>>(new Set())
+  const [downloadingReports, setDownloadingReports] = useState<Set<string>>(new Set())
   const [showFilterSidebar, setShowFilterSidebar] = useState(false)
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     search: '',
@@ -28,6 +30,7 @@ export function Reports() {
   })
   
   const navigate = useNavigate()
+  const { toast } = useToast()
   
   // Debounce para la búsqueda (500ms de delay)
   const debouncedSearchInput = useDebounce(searchInput, 1000)
@@ -74,9 +77,17 @@ export function Reports() {
     setActiveFilters(filters)
   }
 
-  // Función para eliminar reporte con optimistic update
+  // Función para eliminar reporte con confirmación mejorada
   const deleteReport = async (reportId: string) => {
-    const confirm = window.confirm('¿Estás seguro de querer eliminar este reporte?')
+    const report = reports.find(r => r.id === reportId)
+    const reportName = report?.filename || 'este reporte'
+    
+    // Confirmación más elegante y específica
+    const confirm = window.confirm(
+      `¿Estás seguro de que quieres eliminar "${reportName}"?\n\n` +
+      `Esta acción no se puede deshacer y se perderán todos los datos del reporte.`
+    )
+    
     if (!confirm) return
 
     try {
@@ -87,14 +98,28 @@ export function Reports() {
       if (response.success && response.data?.id) {
         // Optimistic update: remover del estado sin recargar
         setReports(prev => prev.filter(report => report.id !== reportId))
+        toast({
+          title: "Reporte eliminado",
+          description: `"${reportName}" ha sido eliminado correctamente.`,
+        })
       } else {
         // Si falla, recargar todos los reportes
         await loadReports()
+        toast({
+          title: "Error al eliminar",
+          description: `No se pudo eliminar "${reportName}". Inténtalo de nuevo.`,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Error al eliminar reporte:', error)
       // En caso de error, recargar todos los reportes
       await loadReports()
+      toast({
+        title: "Error al eliminar",
+        description: `Ocurrió un error inesperado al eliminar "${reportName}".`,
+        variant: "destructive",
+      })
     } finally {
       setDeletingReports(prev => {
         const newSet = new Set(prev)
@@ -113,6 +138,11 @@ export function Reports() {
       // Recargar reportes después del procesamiento
       await loadReports()
       
+      toast({
+        title: "Procesamiento completado",
+        description: "El reporte se ha procesado correctamente con IA.",
+      })
+      
       setProcessingReports(prev => {
         const newSet = new Set(prev)
         newSet.delete(reportId)
@@ -120,6 +150,11 @@ export function Reports() {
       })
     } catch (error) {
       console.error('Error al procesar reporte:', error)
+      toast({
+        title: "Error en el procesamiento",
+        description: "No se pudo procesar el reporte. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
       setProcessingReports(prev => {
         const newSet = new Set(prev)
         newSet.delete(reportId)
@@ -154,28 +189,69 @@ export function Reports() {
 
   const downloadReport = async (reportId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/upload/download/${reportId}`)
+      setDownloadingReports(prev => new Set(prev).add(reportId))
+      
+      const response = await ReportService.downloadReport(reportId)
+      
       if (response.ok) {
-        // Si es una redirección, abrir en nueva pestaña
+        // Obtener el nombre del archivo del reporte actual en el estado
+        const currentReport = reports.find(report => report.id === reportId)
+        const filename = currentReport?.filename || `reporte-${reportId}`
+        
+        // Asegurar que tenga la extensión .pdf
+        const pdfFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
+        
+        // Si es una redirección (Cloudinary), descargar el archivo con nombre correcto
         if (response.redirected) {
-          window.open(response.url, '_blank')
+          // Descargar desde la URL de Cloudinary
+          const cloudinaryResponse = await fetch(response.url)
+          const blob = await cloudinaryResponse.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = pdfFilename
+          document.body.appendChild(a)
+          a.click()
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
         } else {
           // Si es un archivo directo, descargarlo
           const blob = await response.blob()
           const url = window.URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = `reporte-${reportId}.pdf`
+          a.download = pdfFilename
           document.body.appendChild(a)
           a.click()
           window.URL.revokeObjectURL(url)
           document.body.removeChild(a)
         }
+        
+        toast({
+          title: "Descarga completada",
+          description: `El reporte original ${pdfFilename} se ha descargado correctamente.`,
+        })
       } else {
         console.error('Error al descargar archivo:', response.statusText)
+        toast({
+          title: "Error en la descarga",
+          description: "No se pudo descargar el reporte original. Inténtalo de nuevo.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Error al descargar reporte:', error)
+      toast({
+        title: "Error en la descarga",
+        description: "Ocurrió un error inesperado al descargar el reporte original.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingReports(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(reportId)
+        return newSet
+      })
     }
   }
 
@@ -335,7 +411,10 @@ export function Reports() {
                       <p><strong>Paciente:</strong> {report.patient?.name || 'No especificado'}</p>
                       <p><strong>Especie:</strong> {report.patient?.species || 'No especificado'}</p>
                       <p><strong>Veterinario:</strong> {report.veterinarian?.name || 'No especificado'}</p>
-                      <p><strong>Fecha:</strong> {new Date(report.createdAt).toLocaleDateString('es-ES')}</p>
+                      {report.study?.date && (
+                      <p><strong>Fecha de estudio:</strong> {new Date(report.study?.date).toLocaleDateString('es-ES')}</p>
+                      )}
+                      <p><strong>Fecha de subida:</strong> {new Date(report.createdAt).toLocaleDateString('es-ES')}</p>
                     </div>
 
                     {report.diagnosis && (
@@ -371,15 +450,20 @@ export function Reports() {
                       onClick={() => downloadReport(report.id)} 
                       variant="outline" 
                       size="sm"
-                      className="text-green-600 hover:text-green-700"
-                      title="Descargar PDF original"
+                      disabled={downloadingReports.has(report.id)}
+                      className="text-green-600 hover:text-green-700 disabled:opacity-50"
+                      title={downloadingReports.has(report.id) ? "Descargando reporte original..." : "Descargar reporte original (PDF)"}
                     >
-                      <Download className="h-4 w-4" />
+                      {downloadingReports.has(report.id) ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
                     </Button>
-                    <Button onClick={() => viewReport(report.id)} variant="outline" size="sm">
+                    <Button onClick={() => viewReport(report.id)} variant="outline" size="sm" title="Ver reporte">
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button onClick={() => editReport(report.id)} variant="outline" size="sm">
+                    <Button onClick={() => editReport(report.id)} variant="outline" size="sm" title="Editar reporte">
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
@@ -388,6 +472,7 @@ export function Reports() {
                       size="sm" 
                       disabled={deletingReports.has(report.id)}
                       className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                      title={deletingReports.has(report.id) ? "Eliminando..." : "Eliminar reporte permanentemente"}
                     >
                       {deletingReports.has(report.id) ? (
                         <RefreshCw className="h-4 w-4 animate-spin" />

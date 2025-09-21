@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Trash2, Download, Eye } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, Download, ChevronDown, ChevronRight, FileText } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,9 @@ export function ReportDetail() {
   const navigate = useNavigate()
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [isTextExpanded, setIsTextExpanded] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -47,6 +50,87 @@ export function ReportDetail() {
         {config.text}
       </Badge>
     )
+  }
+
+  const downloadReport = async () => {
+    if (!report?.id) return
+
+    try {
+      setDownloading(true)
+      
+      const response = await ReportService.downloadReport(report.id)
+      
+      if (response.ok) {
+        // Obtener el nombre del archivo del reporte
+        const filename = report.filename || `reporte-${report.id}`
+        
+        // Asegurar que tenga la extensión .pdf
+        const pdfFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
+        
+        // Si es una redirección (Cloudinary), descargar el archivo con nombre correcto
+        if (response.redirected) {
+          // Descargar desde la URL de Cloudinary
+          const cloudinaryResponse = await fetch(response.url)
+          const blob = await cloudinaryResponse.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = pdfFilename
+          document.body.appendChild(a)
+          a.click()
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
+        } else {
+          // Si es un archivo directo, descargarlo
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = pdfFilename
+          document.body.appendChild(a)
+          a.click()
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
+        }
+      } else {
+        console.error('Error al descargar archivo:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Error al descargar reporte:', error)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const deleteReport = async () => {
+    if (!report?.id) return
+
+    const reportName = report.filename || 'este reporte'
+    
+    // Confirmación más elegante y específica
+    const confirm = window.confirm(
+      `¿Estás seguro de que quieres eliminar "${reportName}"?\n\n` +
+      `Esta acción no se puede deshacer y se perderán todos los datos del reporte.`
+    )
+    
+    if (!confirm) return
+
+    try {
+      setDeleting(true)
+      
+      const response = await ReportService.deleteReport(report.id)
+      
+      if (response.success && response.data?.id) {
+        // Navegar de vuelta a la lista de reportes
+        navigate('/reports')
+      } else {
+        console.error('Error al eliminar reporte')
+      }
+    } catch (error) {
+      console.error('Error al eliminar reporte:', error)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (loading) {
@@ -95,27 +179,51 @@ export function ReportDetail() {
             </h1>
             <div className="flex items-center space-x-2 mt-2">
               {getStatusBadge(report.status)}
-              {report.confidence && (
+              {/* {report.confidence && (
                 <Badge variant="outline">
                   Confianza: {report.confidence}%
                 </Badge>
-              )}
+              )} */}
             </div>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={() => navigate(`/reports/${report.id}/edit`)}
+            title="Editar reporte"
+          >
             <Edit className="mr-2 h-4 w-4" />
             Editar
           </Button>
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Descargar
+          <Button 
+            variant="outline"
+            onClick={downloadReport}
+            disabled={downloading}
+            className="text-green-600 hover:text-green-700 disabled:opacity-50"
+            title={downloading ? "Descargando reporte original..." : "Descargar reporte original (PDF)"}
+          >
+            {downloading ? (
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {downloading ? "Descargando..." : "Descargar"}
           </Button>
-          <Button variant="outline" className="text-red-600 hover:text-red-700">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Eliminar
+          <Button 
+            variant="outline" 
+            className="text-red-600 hover:text-red-700 disabled:opacity-50"
+            onClick={deleteReport}
+            disabled={deleting}
+            title={deleting ? "Eliminando..." : "Eliminar reporte permanentemente"}
+          >
+            {deleting ? (
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            {deleting ? "Eliminando..." : "Eliminar"}
           </Button>
         </div>
       </div>
@@ -362,22 +470,48 @@ export function ReportDetail() {
         )}
       </div>
 
-      {/* Texto Extraído */}
+      {/* Texto Extraído - Accordion */}
       {report.extractedText && (
         <Card>
-          <CardHeader>
-            <CardTitle>Texto Extraído</CardTitle>
-            <CardDescription>
-              Texto completo extraído del documento mediante OCR
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-                {report.extractedText}
-              </p>
+          <CardHeader 
+            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            onClick={() => setIsTextExpanded(!isTextExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <div>
+                  <CardTitle className="text-lg">Texto Extraído</CardTitle>
+                  <CardDescription>
+                    Texto completo extraído del documento mediante OCR
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Badge variant="secondary" className="text-xs">
+                  {report.extractedText.length} caracteres
+                </Badge>
+                {isTextExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                )}
+              </div>
             </div>
-          </CardContent>
+          </CardHeader>
+          {isTextExpanded && (
+            <CardContent>
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg max-h-96 overflow-y-auto">
+                <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed">
+                  {report.extractedText}
+                </p>
+              </div>
+              <div className="mt-3 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                <span>Texto extraído mediante procesamiento de IA</span>
+                <span>{new Date(report.updatedAt || report.createdAt).toLocaleDateString('es-ES')}</span>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
     </div>

@@ -1,12 +1,13 @@
 // Constantes para endpoints de la API
 
-export const API_BASE_URL = 'http://localhost:5000/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 export const API_ENDPOINTS = {
   // Reportes
   REPORTS: {
     BASE: '/reports',
     BY_ID: (id: string) => `/reports/${id}`,
+    DOWNLOAD: (id: string) => `/reports/${id}/download`,
     SEARCH: (query: string) => `/reports/search/${query}`,
     STATS: '/reports/stats/overview'
   },

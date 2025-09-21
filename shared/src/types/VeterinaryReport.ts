@@ -1,72 +1,32 @@
-// Tipos compartidos para el sistema diagnoVET
+// Tipos derivados de los esquemas Zod - Single source of truth
+import type {
+  PatientSchema,
+  VeterinarianSchema,
+  StudySchema,
+  ProcessingStatusSchema,
+  VeterinaryReportSchema,
+  CreateReportSchema,
+  UpdateReportSchema,
+  SearchFiltersSchema
+} from '../validators/reportValidators';
+import type { z } from 'zod';
 
-export interface Patient {
-  id?: string;
-  name: string;
-  species: string;
-  breed?: string;
-  age?: string;
-  weight?: string;
-  owner: string;
-}
+// Tipos base derivados de los esquemas Zod
+export type Patient = z.infer<typeof PatientSchema>;
+export type Veterinarian = z.infer<typeof VeterinarianSchema>;
+export type Study = z.infer<typeof StudySchema>;
+export type ProcessingStatus = z.infer<typeof ProcessingStatusSchema>;
+export type VeterinaryReport = z.infer<typeof VeterinaryReportSchema>;
+export type CreateReport = z.infer<typeof CreateReportSchema>;
+export type UpdateReport = z.infer<typeof UpdateReportSchema>;
+export type SearchFilters = z.infer<typeof SearchFiltersSchema>;
 
-export interface Veterinarian {
-  id?: string;
-  name: string;
-  license?: string;
-  title?: string;
-  clinic?: string;
-  contact?: string;
-  referredBy?: string;
-}
-
-export interface Study {
-  id?: string;
-  type: string;
-  date: string | Date;
-  technique?: string;
-  bodyRegion?: string;
-  incidences: string[];
-  equipment?: string;
-  echoData?: any;
-}
-
-export interface VeterinaryReport {
-  id?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-
-  // Metadatos del archivo
-  filename: string;
-  fileUrl: string;
-  uploadDate?: Date;
-  
-  // Estado del procesamiento
-  status: ProcessingStatus;
-  confidence?: number; // 0-100 Confianza del OCR/extracción
-
-  // Contenido clínico
-  findings?: string;
-  diagnosis?: string;
-  differentials: string[];
-  recommendations: string[];
-  measurements?: any;
-  images: string[];
-
-  // Texto completo extraído
-  extractedText?: string;
-
-  // Relaciones
-  patient: Patient;
-  veterinarian: Veterinarian;
-  study: Study;
-}
-
-export enum ProcessingStatus {
-  PROCESSING = 'PROCESSING',
-  COMPLETED = 'COMPLETED',
-  ERROR = 'ERROR',
-  NEEDS_REVIEW = 'NEEDS_REVIEW'
+// Tipos extendidos para casos específicos del frontend
+export interface VeterinaryReportWithTimestamps extends VeterinaryReport {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  uploadDate: Date;
 }
 
 // Tipos para la API
@@ -87,16 +47,6 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export interface SearchFilters {
-  page?: number;
-  limit?: number;
-  status?: ProcessingStatus;
-  search?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  species?: string;
-  veterinarian?: string;
-}
 
 // Tipos para estadísticas
 export interface ReportStats {

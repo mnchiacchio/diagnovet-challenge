@@ -5,7 +5,7 @@ export class ReportService {
   private static baseUrl = API_BASE_URL
 
   // Obtener todos los reportes con filtros
-  static async getAllReports(filters: SearchFilters = {}) {
+  static async getAllReports(filters: Partial<SearchFilters> = {}) {
     const params = new URLSearchParams()
     
     if (filters.page) params.append('page', filters.page.toString())
@@ -35,6 +35,17 @@ export class ReportService {
     }
 
     return response.json() as Promise<ApiResponse<any>>
+  }
+
+  // Descargar reporte original
+  static async downloadReport(id: string) {
+    const response = await fetch(`${this.baseUrl}${API_ENDPOINTS.REPORTS.DOWNLOAD(id)}`)
+    
+    if (!response.ok) {
+      throw new Error('Error al descargar el reporte')
+    }
+
+    return response
   }
 
   // Crear un nuevo reporte
@@ -85,7 +96,7 @@ export class ReportService {
   }
 
   // Buscar reportes
-  static async searchReports(query: string, filters: SearchFilters = {}) {
+  static async searchReports(query: string, filters: Partial<SearchFilters> = {}) {
     const params = new URLSearchParams()
     
     if (filters.page) params.append('page', filters.page.toString())

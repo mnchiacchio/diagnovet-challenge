@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Menu, X, Bell, User, Settings } from 'lucide-react'
+import { Menu, X, Bell, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import diagnovetLogo from '@/assets/images/diagnovet-icon.png'
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
+  
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="px-4 sm:px-6 lg:px-8">
@@ -23,17 +23,9 @@ export function Header() {
           </div>
 
           {/* Navegación desktop */}
-          <nav className="hidden md:flex space-x-8">
-            <a href="/" className="text-gray-700 dark:text-gray-300 hover:text-veterinary-primary px-3 py-2 rounded-md text-sm font-medium">
-              Dashboard
-            </a>
-            <a href="/reports" className="text-gray-700 dark:text-gray-300 hover:text-veterinary-primary px-3 py-2 rounded-md text-sm font-medium">
-              Reportes
-            </a>
-            <a href="/upload" className="text-gray-700 dark:text-gray-300 hover:text-veterinary-primary px-3 py-2 rounded-md text-sm font-medium">
-              Subir Archivos
-            </a>
-          </nav>
+          <div className="items-center space-x-4 hidden md:flex">
+            <h1 className="text-gray-700 dark:text-gray-300 text-md font-medium">🐾¡Bienvenido a diagnoVET!</h1>
+          </div>
 
           {/* Acciones del header */}
           <div className="flex items-center space-x-4">
@@ -49,11 +41,6 @@ export function Header() {
             <Button variant="ghost" size="sm">
               <User className="h-5 w-5 mr-2" />
               <span className="hidden sm:inline">Usuario</span>
-            </Button>
-
-            {/* Configuración */}
-            <Button variant="ghost" size="sm">
-              <Settings className="h-5 w-5" />
             </Button>
 
             {/* Menú móvil */}
@@ -80,6 +67,9 @@ export function Header() {
               </a>
               <a href="/upload" className="text-gray-700 dark:text-gray-300 hover:text-veterinary-primary block px-3 py-2 rounded-md text-base font-medium">
                 Subir Archivos
+              </a>
+              <a href="/settings" className="text-gray-700 dark:text-gray-300 hover:text-veterinary-primary block px-3 py-2 rounded-md text-base font-medium">
+                Configuración
               </a>
             </div>
           </div>

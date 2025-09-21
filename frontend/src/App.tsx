@@ -7,6 +7,7 @@ import { Reports } from '@/pages/Reports'
 import { Upload } from '@/pages/Upload'
 import { ReportDetail } from '@/pages/ReportDetail'
 import { Settings } from '@/pages/Settings'
+import { ReportEdit } from './pages/ReportEdit'
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/:id" element={<ReportDetail />} />
+              <Route path="/reports/:id/edit" element={<ReportEdit />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>

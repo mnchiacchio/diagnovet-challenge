@@ -22,7 +22,7 @@ export const VeterinarianSchema = z.object({
 
 export const StudySchema = z.object({
   type: z.string().min(1, 'El tipo de estudio es requerido'),
-  date: z.string().datetime('Fecha inválida'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)'),
   technique: z.string().optional(),
   bodyRegion: z.string().optional(),
   incidences: z.array(z.string()).default([]),
@@ -80,12 +80,3 @@ export const SearchFiltersSchema = z.object({
   veterinarian: z.string().optional()
 });
 
-// Tipos TypeScript derivados de los esquemas Zod
-export type Patient = z.infer<typeof PatientSchema>;
-export type Veterinarian = z.infer<typeof VeterinarianSchema>;
-export type Study = z.infer<typeof StudySchema>;
-export type ProcessingStatus = z.infer<typeof ProcessingStatusSchema>;
-export type VeterinaryReport = z.infer<typeof VeterinaryReportSchema>;
-export type CreateReport = z.infer<typeof CreateReportSchema>;
-export type UpdateReport = z.infer<typeof UpdateReportSchema>;
-export type SearchFilters = z.infer<typeof SearchFiltersSchema>;
