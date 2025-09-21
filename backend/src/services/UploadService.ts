@@ -1,27 +1,38 @@
 import { CloudinaryService } from './CloudinaryService';
 import { ReportService } from './ReportService';
-import { OCRService } from './OCRService';
-import { DataExtractionService } from './DataExtractionService';
+import { PDFProcessingService } from './PDFProcessingService';
+import { ILLMService } from '../interfaces/LLMService.interface';
+import { LLMServiceFactory } from '../factories/LLMServiceFactory';
+import { logger } from '../utils/Logger';
 
 export class UploadService {
   private cloudinaryService = new CloudinaryService();
   private reportService = new ReportService();
-  private ocrService = new OCRService();
-  private dataExtractionService = new DataExtractionService();
+  private pdfProcessingService = new PDFProcessingService();
+  private llmService: ILLMService;
 
-  // Subir archivos a Cloudinary
+  constructor() {
+    this.llmService = LLMServiceFactory.createService();
+  }
+
+  // Subir archivos y procesar automáticamente
   async uploadFiles(files: Express.Multer.File[]) {
     const uploadResults = [];
 
     for (const file of files) {
       try {
-        // Subir archivo a Cloudinary
-        const uploadResult = await this.cloudinaryService.uploadFile(file);
+        // Subir archivo a Cloudinary primero
+        logger.debug(`Subiendo archivo a Cloudinary: ${file.originalname}`);
+        const cloudinaryResult = await this.cloudinaryService.uploadFile(file);
         
-        // Crear entrada temporal en la base de datos
-        const tempReport = await this.reportService.createReport({
-          filename: file.originalname,
-          fileUrl: uploadResult.secure_url,
+        if (!cloudinaryResult.success) {
+          throw new Error(`Error al subir a Cloudinary: ${cloudinaryResult.error}`);
+        }
+
+        // Crear entrada en la base de datos con URL de Cloudinary
+        const report = await this.reportService.createReport({
+          filename: file.originalname, // El frontend ya envía el nombre normalizado
+          fileUrl: cloudinaryResult.url || '', // URL real de Cloudinary
           patient: {
             name: 'Pendiente de extracción',
             species: 'Pendiente de extracción',
@@ -32,19 +43,30 @@ export class UploadService {
           },
           study: {
             type: 'Pendiente de extracción',
-            date: new Date().toISOString()
-          }
+            date: new Date().toISOString(),
+            incidences: []
+          },
+          differentials: [],
+          recommendations: [],
+          images: []
         });
 
         uploadResults.push({
-          id: tempReport.id,
-          filename: file.originalname,
-          url: uploadResult.secure_url,
+          id: report.id,
+          filename: file.originalname, // El frontend ya envía el nombre normalizado
+          originalFilename: file.originalname,
+          url: cloudinaryResult.url,
           status: 'uploaded',
-          publicId: uploadResult.public_id
+          publicId: cloudinaryResult.publicId
         });
+
+        // Procesar automáticamente en segundo plano
+        this.processFileAsync(report.id, file.originalname, cloudinaryResult.url || '').catch(error => {
+          logger.error(`Error al procesar archivo ${file.originalname} automáticamente:`, error);
+        });
+
       } catch (error) {
-        console.error(`Error al subir archivo ${file.originalname}:`, error);
+        logger.error(`Error al subir archivo ${file.originalname}:`, error);
         uploadResults.push({
           filename: file.originalname,
           status: 'error',
@@ -56,75 +78,127 @@ export class UploadService {
     return uploadResults;
   }
 
-  // Procesar archivo con OCR y extracción de datos
-  async processFile(reportId: string) {
+  // Procesar archivo de forma asíncrona (no bloquea la respuesta)
+  private async processFileAsync(reportId: string, filename: string, fileUrl: string) {
     try {
+      logger.info(`Iniciando procesamiento automático para ${filename}`);
+      
+      // Pequeña pausa para asegurar que la respuesta de upload se envíe primero
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const result = await this.processFile(reportId, fileUrl);
+      logger.info(`Procesamiento completado para ${filename} con confianza: ${result.confidence}`);
+      
+    } catch (error) {
+      logger.error(`Error en procesamiento automático para ${filename}:`, error);
+    }
+  }
+
+  // Procesar archivo con PDF + LLM
+  async processFile(reportId: string, fileUrl?: string) {
+    try {
+      logger.info(`Iniciando procesamiento para reporte: ${reportId}`);
+      
       // Obtener el reporte
       const report = await this.reportService.getReportById(reportId);
       if (!report) {
         throw new Error('Reporte no encontrado');
       }
 
+      // Usar la URL proporcionada o la del reporte
+      const pdfUrl = fileUrl || report.fileUrl;
+
       // Actualizar estado a procesando
       await this.reportService.updateReport(reportId, {
         status: 'PROCESSING'
       });
 
-      // Realizar OCR
-      const ocrResult = await this.ocrService.extractText(report.fileUrl);
-      
-      if (!ocrResult.success) {
-        throw new Error('Error en el procesamiento OCR');
+      // Verificar que es un archivo PDF
+      if (!this.pdfProcessingService.isPDFFile(pdfUrl)) {
+        throw new Error('Solo se pueden procesar archivos PDF');
       }
 
-      // Extraer datos estructurados
-      const extractedData = await this.dataExtractionService.extractData(ocrResult.text);
+      // Procesar PDF (extraer texto + imágenes)
+      logger.debug('Procesando PDF');
+      const pdfResult = await this.pdfProcessingService.processPDF(pdfUrl);
+      
+      if (!pdfResult.success) {
+        throw new Error(`Error al procesar PDF: ${pdfResult.error}`);
+      }
 
-      // Actualizar el reporte con los datos extraídos
+      // Enviar texto a LLM para extracción inteligente
+      logger.debug('Enviando a LLM para extracción de datos');
+      const llmResult = await this.llmService.extractVeterinaryData(pdfResult.text);
+      
+      if (!llmResult.success) {
+        throw new Error(`Error en LLM: ${llmResult.error}`);
+      }
+
+      const extractedData = llmResult.data;
+
+      if (!extractedData) {
+        throw new Error('No se pudieron extraer datos del LLM');
+      }
+
+      // Actualizar el reporte con los datos extraídos por LLM
+      logger.debug('Guardando datos extraídos en la base de datos');
+      
       const updatedReport = await this.reportService.updateReport(reportId, {
-        extractedText: ocrResult.text,
-        findings: extractedData.findings,
-        diagnosis: extractedData.diagnosis,
-        differentials: extractedData.differentials,
-        recommendations: extractedData.recommendations,
-        measurements: extractedData.measurements,
-        confidence: ocrResult.confidence,
-        status: ocrResult.confidence > 80 ? 'COMPLETED' : 'NEEDS_REVIEW',
+        extractedText: pdfResult.text,
+        findings: extractedData.findings || '',
+        diagnosis: extractedData.diagnosis || '',
+        differentials: extractedData.differentials || [],
+        recommendations: extractedData.recommendations || [],
+        measurements: extractedData.measurements || {},
+        confidence: extractedData.confidence || 0,
+        status: (extractedData.confidence || 0) > 80 ? 'COMPLETED' : 'NEEDS_REVIEW',
         patient: {
-          name: extractedData.patient.name,
-          species: extractedData.patient.species,
-          breed: extractedData.patient.breed,
-          age: extractedData.patient.age,
-          weight: extractedData.patient.weight,
-          owner: extractedData.patient.owner
+          name: extractedData.patient.name || '',
+          species: extractedData.patient.species || '',
+          breed: extractedData.patient.breed || '',
+          age: extractedData.patient.age || '',
+          weight: extractedData.patient.weight || '',
+          owner: extractedData.patient.owner || ''
         },
         veterinarian: {
-          name: extractedData.veterinarian.name,
-          license: extractedData.veterinarian.license,
-          title: extractedData.veterinarian.title,
-          clinic: extractedData.veterinarian.clinic,
-          contact: extractedData.veterinarian.contact,
-          referredBy: extractedData.veterinarian.referredBy
+          name: extractedData.veterinarian.name || '',
+          license: extractedData.veterinarian.license || '',
+          title: extractedData.veterinarian.title || '',
+          clinic: extractedData.veterinarian.clinic || '',
+          contact: extractedData.veterinarian.contact || '',
+          referredBy: extractedData.veterinarian.referredBy || ''
         },
         study: {
-          type: extractedData.study.type,
-          date: extractedData.study.date,
-          technique: extractedData.study.technique,
-          bodyRegion: extractedData.study.bodyRegion,
-          incidences: extractedData.study.incidences,
-          equipment: extractedData.study.equipment,
-          echoData: extractedData.study.echoData
+          type: extractedData.study?.type || '',
+          date: extractedData.study?.date || '',
+          technique: extractedData.study?.technique || '',
+          bodyRegion: extractedData.study?.bodyRegion || '',
+          incidences: extractedData.study?.incidences || [],
+          equipment: extractedData.study?.equipment || '',
+          echoData: extractedData.study?.echoData || {}
         }
       });
 
+      logger.info('Procesamiento completado exitosamente');
+      logger.debug('Reporte actualizado:', {
+        id: updatedReport.id,
+        status: updatedReport.status,
+        confidence: updatedReport.confidence
+      });
+      
       return {
         success: true,
         report: updatedReport,
-        confidence: ocrResult.confidence,
-        extractedData
+        confidence: llmResult.confidence,
+        extractedData,
+        processingSteps: {
+          pdfProcessing: pdfResult.success,
+          llmExtraction: llmResult.success,
+          dataSaved: true
+        }
       };
     } catch (error) {
-      console.error('Error al procesar archivo:', error);
+      logger.error('Error al procesar archivo:', error);
       
       // Actualizar estado a error
       await this.reportService.updateReport(reportId, {
@@ -151,5 +225,10 @@ export class UploadService {
       createdAt: report.createdAt,
       updatedAt: report.updatedAt
     };
+  }
+
+  // Obtener reporte por ID
+  async getReportById(reportId: string) {
+    return await this.reportService.getReportById(reportId);
   }
 }
