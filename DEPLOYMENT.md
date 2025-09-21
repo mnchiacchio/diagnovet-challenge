@@ -2,6 +2,27 @@
 
 Este documento contiene las instrucciones completas para desplegar la aplicación diagnoVET en producción.
 
+## ⚠️ IMPORTANTE: Verificación Pre-Despliegue
+
+**ANTES de comenzar el despliegue, ejecuta estos comandos para verificar que todo funciona:**
+
+```bash
+# Desde la raíz del proyecto
+# 1. Instalar todas las dependencias
+npm run install:all
+
+# 2. Construir el paquete shared
+cd shared && npm run build && cd ..
+
+# 3. Verificar build del backend
+cd backend && npm run build && cd ..
+
+# 4. Verificar build del frontend
+cd frontend && npm run build && cd ..
+
+# Si todos los builds pasan, puedes continuar con el despliegue
+```
+
 ## 📋 Prerrequisitos
 
 ### Cuentas Necesarias
@@ -83,7 +104,7 @@ cd backend
 # Instalar dependencias
 npm install
 
-# Verificar que compile
+# Verificar que compile (backend es independiente)
 npm run build
 ```
 
@@ -114,6 +135,10 @@ railway variables set OPENROUTER_MODEL="meta-llama/llama-3.3-8b-instruct:free"
 railway variables set LLM_PROVIDER="openrouter"
 railway variables set NODE_ENV="production"
 railway variables set API_PORT="5000"
+
+# IMPORTANTE: Configurar build command para Railway
+railway variables set RAILWAY_BUILD_COMMAND="cd backend && npm install && npm run build"
+railway variables set RAILWAY_START_COMMAND="cd backend && npm start"
 ```
 
 ### Paso 4.4: Desplegar Backend
@@ -142,8 +167,13 @@ curl https://tu-backend.railway.app/api/v1/system/config
 # Desde la raíz del proyecto
 cd frontend
 
-# Instalar dependencias
+# Instalar dependencias (incluye shared package)
 npm install
+
+# Construir el paquete shared primero
+cd ../shared
+npm run build
+cd ../frontend
 
 # Verificar que compile
 npm run build

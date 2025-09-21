@@ -39,8 +39,9 @@ diagnoVET es una solución completa que permite a los veterinarios subir reporte
 
 ### Herramientas de Desarrollo
 - **Concurrently** - Ejecución paralela de scripts
-- **Zod** - Validación de esquemas
+- **Zod** - Validación de esquemas (fuente única de verdad para tipos)
 - **React Hook Form** - Manejo de formularios
+
 
 ## 🚀 Instalación y Configuración
 
@@ -110,7 +111,8 @@ diagnovet-challenge/
 │   │   ├── assets/          # Recursos estáticos
 │   │   │   └── images/      # Imágenes del proyecto
 │   │   ├── components/       # Componentes personalizados
-│   │   │   └── ui/          # Componentes Shadcn/ui
+│   │   │   ├── ui/          # Componentes Shadcn/ui
+│   │   │   └── forms/       # Componentes de formularios modulares
 │   │   ├── pages/           # Páginas de la aplicación
 │   │   ├── hooks/           # Custom React hooks
 │   │   ├── services/        # Llamadas a API
@@ -137,12 +139,12 @@ diagnovet-challenge/
 │   │   └── schema.prisma    # Esquema de base de datos
 │   ├── package.json
 │   └── tsconfig.json
-├── shared/                   # Tipos y utilidades compartidas
+├── shared/                   # Tipos y utilidades compartidas (solo frontend)
 │   ├── src/
-│   │   ├── types/           # Tipos TypeScript compartidos
+│   │   ├── types/           # Tipos TypeScript derivados de validadores
 │   │   ├── utils/           # Funciones utilitarias
 │   │   ├── constants/       # Constantes compartidas
-│   │   └── validators/      # Esquemas Zod compartidos
+│   │   └── validators/      # Esquemas Zod (fuente única de verdad)
 │   ├── package.json
 │   └── tsconfig.json
 ├── .cursor/
@@ -160,20 +162,25 @@ diagnovet-challenge/
 ### Scripts Principales
 ```bash
 npm run dev              # Ejecutar frontend y backend en desarrollo
-npm run build           # Construir ambos proyectos
+npm run build           # Construir shared, backend y frontend
 npm run install:all     # Instalar todas las dependencias
 ```
 
 ### Scripts de Frontend
 ```bash
 npm run dev:frontend    # Ejecutar solo frontend
-npm run build:frontend  # Construir frontend
+npm run build:frontend  # Construir frontend (requiere shared)
 ```
 
 ### Scripts de Backend
 ```bash
 npm run dev:backend     # Ejecutar solo backend
-npm run build:backend   # Construir backend
+npm run build:backend   # Construir backend (independiente)
+```
+
+### Scripts de Shared
+```bash
+npm run build:shared    # Construir paquete shared
 ```
 
 ### Scripts de Base de Datos
@@ -198,6 +205,7 @@ npm run db:push         # Sincronizar esquema con BD
 - Revisa datos extraídos automáticamente
 - Edita información incorrecta
 - Confirma reportes procesados
+- Actualiza estado del procesamiento
 
 ### 4. Navegación y Búsqueda
 - Lista de todos los reportes con paginación
@@ -218,6 +226,15 @@ La aplicación utiliza inteligencia artificial para extraer automáticamente inf
 
 ## 🚀 Despliegue
 
+### Verificación Pre-Despliegue
+```bash
+# Verificar que todos los builds funcionan
+npm run install:all
+npm run build:shared
+npm run build:backend
+npm run build:frontend
+```
+
 ### Frontend (Vercel)
 ```bash
 # Configurar en Vercel
@@ -233,9 +250,22 @@ VITE_API_URL=https://tu-api.railway.app
 railway login
 railway link
 
-# Desplegar
+# Configurar variables de entorno
+railway variables set DATABASE_URL="postgresql://..."
+railway variables set CLOUDINARY_CLOUD_NAME="tu_cloud_name"
+railway variables set CLOUDINARY_API_KEY="tu_api_key"
+railway variables set CLOUDINARY_API_SECRET="tu_api_secret"
+railway variables set OPENROUTER_API_KEY="tu_openrouter_key"
+railway variables set OPENROUTER_MODEL="meta-llama/llama-3.3-8b-instruct:free"
+railway variables set LLM_PROVIDER="openrouter"
+railway variables set NODE_ENV="production"
+railway variables set API_PORT="5000"
+
+# Desplegar (usa railway.json para configuración automática)
 railway up
 ```
+
+> **Nota**: El archivo `railway.json` contiene la configuración optimizada de build y deploy para Railway.
 
 ## 🤝 Contribución
 
@@ -262,6 +292,7 @@ Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) par
 - [Shadcn/ui](https://ui.shadcn.com/) por los componentes de UI
 - [Prisma](https://prisma.io/) por el ORM
 - [Vercel](https://vercel.com/) y [Railway](https://railway.app/) por el hosting
+- [Zod](https://zod.dev/) por la validación de esquemas y tipado automático
 
 ---
 
