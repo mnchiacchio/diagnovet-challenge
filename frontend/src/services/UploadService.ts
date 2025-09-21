@@ -11,7 +11,7 @@ export class UploadService {
     files.forEach(file => {
       formData.append('files', file)
     })
-
+    debugger;
     const response = await fetch(`${this.baseUrl}${API_ENDPOINTS.UPLOAD.BASE}`, {
       method: 'POST',
       body: formData

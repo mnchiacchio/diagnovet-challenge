@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
-import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { Upload as UploadIcon, FileText, X, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { UploadService } from '@/services/UploadService'
+import { normalizeFileName } from '@/utils/fileUtils'
 
 interface UploadFile {
   id: string
@@ -12,11 +13,53 @@ interface UploadFile {
   progress: number
   error?: string
   result?: any
+  reportId?: string
+  processingStatus?: string
 }
 
 export function Upload() {
   const [files, setFiles] = useState<UploadFile[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
+
+  // Monitorear estado de procesamiento
+  useEffect(() => {
+    const processingFiles = files.filter(f => f.status === 'processing' && f.reportId)
+    
+    if (processingFiles.length === 0) return
+
+    const interval = setInterval(async () => {
+      for (const file of processingFiles) {
+        if (file.reportId) {
+          try {
+            const status = await UploadService.getProcessingStatus(file.reportId)
+            
+            setFiles(prev => prev.map(f => 
+              f.id === file.id 
+                ? { 
+                    ...f, 
+                    processingStatus: status.status,
+                    status: status.status === 'COMPLETED' ? 'completed' : 
+                            status.status === 'ERROR' ? 'error' : 'processing',
+                    progress: status.status === 'COMPLETED' ? 100 : 
+                              status.status === 'ERROR' ? 100 : 75,
+                    error: status.status === 'ERROR' ? 'Error en el procesamiento' : f.error
+                  }
+                : f
+            ))
+
+            // Mostrar notificación cuando se complete
+            if (status.status === 'COMPLETED') {
+              console.log(`✅ Procesamiento completado para ${file.file.name}`)
+            }
+          } catch (error) {
+            console.error('Error al obtener estado:', error)
+          }
+        }
+      }
+    }, 2000) // Verificar cada 2 segundos
+
+    return () => clearInterval(interval)
+  }, [files])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -58,51 +101,85 @@ export function Upload() {
     setFiles(prev => prev.filter(file => file.id !== id))
   }
 
+  const retryProcessing = async (fileId: string, reportId: string) => {
+    try {
+      // Actualizar estado a procesando
+      setFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: 'processing', error: undefined }
+          : f
+      ))
+
+      // Reintentar procesamiento
+      await UploadService.processFile(reportId)
+    } catch (error) {
+      console.error('Error al reintentar procesamiento:', error)
+      setFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: 'error', error: 'Error al reintentar procesamiento' }
+          : f
+      ))
+    }
+  }
+
   const uploadFiles = async () => {
     const pendingFiles = files.filter(f => f.status === 'pending')
     
-    for (const uploadFile of pendingFiles) {
-      try {
-        // Actualizar estado a subiendo
-        setFiles(prev => prev.map(f => 
-          f.id === uploadFile.id 
-            ? { ...f, status: 'uploading', progress: 0 }
-            : f
-        ))
+    if (pendingFiles.length === 0) return
 
-        // Simular progreso de subida
-        for (let progress = 0; progress <= 100; progress += 10) {
-          setFiles(prev => prev.map(f => 
-            f.id === uploadFile.id 
-              ? { ...f, progress }
-              : f
-          ))
-          await new Promise(resolve => setTimeout(resolve, 100))
+    try {
+      // Actualizar todos los archivos a "subiendo"
+      setFiles(prev => prev.map(f => 
+        pendingFiles.some(pf => pf.id === f.id)
+          ? { ...f, status: 'uploading', progress: 0 }
+          : f
+      ))
+
+      // Crear archivos con nombres normalizados
+      const normalizedFiles = pendingFiles.map(f => {
+        const normalizedName = normalizeFileName(f.file.name)
+        // Crear un nuevo File con el nombre normalizado
+        return new File([f.file], normalizedName, { type: f.file.type })
+      })
+
+      // Subir archivos usando el servicio real
+      const uploadResults = await UploadService.uploadFiles(normalizedFiles)
+
+      // Actualizar estado de archivos con resultados reales
+      setFiles(prev => prev.map(f => {
+        const pendingFile = pendingFiles.find(pf => pf.id === f.id)
+        if (pendingFile) {
+          // Buscar resultado comparando nombres normalizados
+          const normalizedOriginalName = normalizeFileName(pendingFile.file.name)
+          const result = uploadResults.find(r => 
+            r.filename === normalizedOriginalName ||
+            r.originalFilename === normalizedOriginalName
+          )
+          return {
+            ...f,
+            status: result ? 'processing' : 'error', // Cambiar a 'processing' en lugar de 'completed'
+            progress: result ? 50 : 100, // 50% después de subir, 100% cuando se complete el procesamiento
+            result: result || null,
+            reportId: result?.id,
+            error: result ? undefined : 'Error al subir el archivo'
+          }
         }
+        return f
+      }))
 
-        // Simular resultado de subida
-        setFiles(prev => prev.map(f => 
-          f.id === uploadFile.id 
-            ? { 
-                ...f, 
-                status: 'completed', 
-                progress: 100,
-                result: { id: Math.random().toString(36).substr(2, 9) }
-              }
-            : f
-        ))
-
-      } catch (error) {
-        setFiles(prev => prev.map(f => 
-          f.id === uploadFile.id 
-            ? { 
-                ...f, 
-                status: 'error', 
-                error: 'Error al subir el archivo'
-              }
-            : f
-        ))
-      }
+    } catch (error) {
+      console.error('Error al subir archivos:', error)
+      
+      // Marcar todos los archivos pendientes como error
+      setFiles(prev => prev.map(f => 
+        pendingFiles.some(pf => pf.id === f.id)
+          ? { 
+              ...f, 
+              status: 'error', 
+              error: error instanceof Error ? error.message : 'Error al subir el archivo'
+            }
+          : f
+      ))
     }
   }
 
@@ -113,21 +190,24 @@ export function Upload() {
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />
       case 'uploading':
-      case 'processing':
         return <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-veterinary-primary"></div>
+      case 'processing':
+        return <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
       default:
         return <FileText className="h-5 w-5 text-gray-400" />
     }
   }
 
-  const getStatusText = (status: UploadFile['status']) => {
+  const getStatusText = (status: UploadFile['status'], processingStatus?: string) => {
     switch (status) {
       case 'pending':
         return 'Pendiente'
       case 'uploading':
         return 'Subiendo...'
       case 'processing':
-        return 'Procesando...'
+        return processingStatus === 'PROCESSING' ? 'Procesando OCR...' : 
+               processingStatus === 'NEEDS_REVIEW' ? 'Revisión necesaria' :
+               'Procesando...'
       case 'completed':
         return 'Completado'
       case 'error':
@@ -181,13 +261,13 @@ export function Upload() {
                   id="file-upload"
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                  accept=".pdf"
                   className="sr-only"
                   onChange={handleFileSelect}
                 />
               </label>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                PDF, JPG, PNG, GIF, WebP hasta 10MB cada uno
+                PDF de hasta 10MB cada uno
               </p>
             </div>
           </div>
@@ -203,7 +283,7 @@ export function Upload() {
                   disabled={files.every(f => f.status !== 'pending')}
                   className="veterinary-button"
                 >
-                  Subir Archivos
+                  ✨Procesar Archivos
                 </Button>
               </div>
 
@@ -220,12 +300,17 @@ export function Upload() {
                         {(file.file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                       
-                      {file.status === 'uploading' && (
+                      {(file.status === 'uploading' || file.status === 'processing') && (
                         <div className="mt-2">
                           <Progress value={file.progress} className="h-2" />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {file.progress}% completado
                           </p>
+                          {file.status === 'processing' && file.processingStatus && (
+                            <p className="text-xs text-blue-500 mt-1">
+                              Estado: {file.processingStatus}
+                            </p>
+                          )}
                         </div>
                       )}
                       
@@ -238,8 +323,18 @@ export function Upload() {
 
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {getStatusText(file.status)}
+                        {getStatusText(file.status, file.processingStatus)}
                       </span>
+                      {file.status === 'error' && file.reportId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => retryProcessing(file.id, file.reportId!)}
+                          className="text-blue-500 hover:text-blue-600"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

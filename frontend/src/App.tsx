@@ -11,13 +11,16 @@ import { Settings } from '@/pages/Settings'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+        {/* Header fijo en la parte superior */}
         <Header />
         
-        <div className="flex">
+        {/* Contenido principal con sidebar y main */}
+        <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           
-          <main className="flex-1 p-6">
+          {/* Main con scroll */}
+          <main className="flex-1 overflow-y-auto p-6">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />

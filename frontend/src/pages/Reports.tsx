@@ -1,34 +1,66 @@
 import { useState, useEffect } from 'react'
-import { Search, Filter, Plus, FileText, Eye, Edit, Trash2 } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Search, FileText, Eye, Edit, Trash2, RefreshCw, Download, Filter, X } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ReportService } from '@/services/ReportService'
+import { UploadService } from '@/services/UploadService'
 import { ProcessingStatus } from '@shared/types/VeterinaryReport'
+import { useNavigate } from 'react-router-dom'
+import { useDebounce } from '@/hooks/useDebounce'
+import { FilterSidebar, FilterState } from '@/components/FilterSidebar'
 
 export function Reports() {
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ProcessingStatus | ''>('')
-
+  const [searchInput, setSearchInput] = useState('')
+  const [processingReports, setProcessingReports] = useState<Set<string>>(new Set())
+  const [deletingReports, setDeletingReports] = useState<Set<string>>(new Set())
+  const [showFilterSidebar, setShowFilterSidebar] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<FilterState>({
+    search: '',
+    status: '',
+    dateFrom: '',
+    dateTo: '',
+    species: '',
+    veterinarian: ''
+  })
+  
+  const navigate = useNavigate()
+  
+  // Debounce para la búsqueda (500ms de delay)
+  const debouncedSearchInput = useDebounce(searchInput, 1000)
+  
+  // Efecto para cargar reportes cuando cambien los filtros
   useEffect(() => {
     loadReports()
-  }, [searchQuery, statusFilter])
+  }, [activeFilters])
+
+  // Efecto para sincronizar el input de búsqueda con los filtros activos
+  useEffect(() => {
+    setActiveFilters(prev => ({
+      ...prev,
+      search: debouncedSearchInput
+    }))
+  }, [debouncedSearchInput])
 
   const loadReports = async () => {
     try {
       setLoading(true)
       const response = await ReportService.getAllReports({
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
+        search: activeFilters.search || undefined,
+        status: activeFilters.status || undefined,
+        dateFrom: activeFilters.dateFrom || undefined,
+        dateTo: activeFilters.dateTo || undefined,
+        species: activeFilters.species || undefined,
+        veterinarian: activeFilters.veterinarian || undefined,
         page: 1,
         limit: 20
       })
       
       if (response.success && response.data) {
-        setReports(response.data.reports)
+        setReports(response.data.data)
       }
     } catch (error) {
       console.error('Error al cargar reportes:', error)
@@ -37,8 +69,68 @@ export function Reports() {
     }
   }
 
+  // Función para aplicar filtros desde el sidebar
+  const handleApplyFilters = (filters: FilterState) => {
+    setActiveFilters(filters)
+  }
+
+  // Función para eliminar reporte con optimistic update
+  const deleteReport = async (reportId: string) => {
+    const confirm = window.confirm('¿Estás seguro de querer eliminar este reporte?')
+    if (!confirm) return
+
+    try {
+      setDeletingReports(prev => new Set(prev).add(reportId))
+      
+      const response = await ReportService.deleteReport(reportId)
+      
+      if (response.success && response.data?.id) {
+        // Optimistic update: remover del estado sin recargar
+        setReports(prev => prev.filter(report => report.id !== reportId))
+      } else {
+        // Si falla, recargar todos los reportes
+        await loadReports()
+      }
+    } catch (error) {
+      console.error('Error al eliminar reporte:', error)
+      // En caso de error, recargar todos los reportes
+      await loadReports()
+    } finally {
+      setDeletingReports(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(reportId)
+        return newSet
+      })
+    }
+  }
+
+  const processReport = async (reportId: string) => {
+    try {
+      setProcessingReports(prev => new Set(prev).add(reportId))
+      
+      await UploadService.processFile(reportId)
+      
+      // Recargar reportes después del procesamiento
+      await loadReports()
+      
+      setProcessingReports(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(reportId)
+        return newSet
+      })
+    } catch (error) {
+      console.error('Error al procesar reporte:', error)
+      setProcessingReports(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(reportId)
+        return newSet
+      })
+    }
+  }
+
   const getStatusBadge = (status: ProcessingStatus) => {
     const statusConfig = {
+      PENDING: { color: 'bg-gray-100 text-gray-800', text: 'Pendiente' },
       PROCESSING: { color: 'bg-yellow-100 text-yellow-800', text: 'Procesando' },
       COMPLETED: { color: 'bg-green-100 text-green-800', text: 'Completado' },
       ERROR: { color: 'bg-red-100 text-red-800', text: 'Error' },
@@ -51,6 +143,52 @@ export function Reports() {
         {config.text}
       </Badge>
     )
+  }
+
+  const viewReport = async (reportId: string) => {
+    navigate(`/reports/${reportId}`)
+  }
+  const editReport = async (reportId: string) => {
+    navigate(`/reports/${reportId}/edit`)
+  }
+
+  const downloadReport = async (reportId: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/upload/download/${reportId}`)
+      if (response.ok) {
+        // Si es una redirección, abrir en nueva pestaña
+        if (response.redirected) {
+          window.open(response.url, '_blank')
+        } else {
+          // Si es un archivo directo, descargarlo
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `reporte-${reportId}.pdf`
+          document.body.appendChild(a)
+          a.click()
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
+        }
+      } else {
+        console.error('Error al descargar archivo:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Error al descargar reporte:', error)
+    }
+  }
+
+  const handleClearFilters = () => {
+    setActiveFilters({
+      search: '',
+      status: '',
+      dateFrom: '',
+      dateTo: '',
+      species: '',
+      veterinarian: ''
+    });
+    setSearchInput('');
   }
 
   if (loading) {
@@ -73,44 +211,96 @@ export function Reports() {
             Gestiona y revisa todos los reportes del sistema
           </p>
         </div>
-        <Button className="veterinary-button">
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Reporte
-        </Button>
       </div>
 
-      {/* Filtros */}
+      {/* Barra de búsqueda y filtros */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="Buscar reportes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
-            <div className="sm:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as ProcessingStatus | '')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-veterinary-primary focus:border-transparent"
-              >
-                <option value="">Todos los estados</option>
-                <option value="PROCESSING">Procesando</option>
-                <option value="COMPLETED">Completado</option>
-                <option value="ERROR">Error</option>
-                <option value="NEEDS_REVIEW">Necesita Revisión</option>
-              </select>
-            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilterSidebar(true)}
+              className="flex items-center space-x-2"
+            >
+              <Filter className="h-4 w-4" />
+              <span>Filtros Avanzados</span>
+              {Object.values(activeFilters).some(value => value !== '') && (
+                <Badge variant="secondary" className="ml-1">
+                  {Object.values(activeFilters).filter(value => value !== '').length}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={loadReports}
+              disabled={loading}
+              className="flex items-center space-x-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Actualizar</span>
+            </Button>
           </div>
+          
+          {/* Filtros activos */}
+          {Object.values(activeFilters).some(value => value !== '') && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Filtros activos:</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={ handleClearFilters }
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpiar todo
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {activeFilters.search && (
+                  <Badge variant="secondary" className="text-xs">
+                    Búsqueda: {activeFilters.search}
+                  </Badge>
+                )}
+                {activeFilters.status && (
+                  <Badge variant="secondary" className="text-xs">
+                    Estado: {activeFilters.status}
+                  </Badge>
+                )}
+                {activeFilters.dateFrom && (
+                  <Badge variant="secondary" className="text-xs">
+                    Desde: {activeFilters.dateFrom}
+                  </Badge>
+                )}
+                {activeFilters.dateTo && (
+                  <Badge variant="secondary" className="text-xs">
+                    Hasta: {activeFilters.dateTo}
+                  </Badge>
+                )}
+                {activeFilters.species && (
+                  <Badge variant="secondary" className="text-xs">
+                    Especie: {activeFilters.species}
+                  </Badge>
+                )}
+                {activeFilters.veterinarian && (
+                  <Badge variant="secondary" className="text-xs">
+                    Veterinario: {activeFilters.veterinarian}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -161,14 +351,49 @@ export function Reports() {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <Button variant="outline" size="sm">
+                    {(report.status === 'PENDING' || report.status === 'ERROR') && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => processReport(report.id)}
+                        disabled={processingReports.has(report.id)}
+                        className="text-blue-600 hover:text-blue-700 cursor-pointer"
+                        title="Re-procesar reporte con IA"
+                      >
+                        {processingReports.has(report.id) ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={() => downloadReport(report.id)} 
+                      variant="outline" 
+                      size="sm"
+                      className="text-green-600 hover:text-green-700"
+                      title="Descargar PDF original"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button onClick={() => viewReport(report.id)} variant="outline" size="sm">
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button onClick={() => editReport(report.id)} variant="outline" size="sm">
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="h-4 w-4" />
+                    <Button 
+                      onClick={() => deleteReport(report.id)} 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={deletingReports.has(report.id)}
+                      className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                    >
+                      {deletingReports.has(report.id) ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -177,6 +402,14 @@ export function Reports() {
           ))
         )}
       </div>
+
+      {/* Filter Sidebar */}
+      <FilterSidebar
+        isOpen={showFilterSidebar}
+        onClose={() => setShowFilterSidebar(false)}
+        onApplyFilters={handleApplyFilters}
+        currentFilters={activeFilters}
+      />
     </div>
   )
 }

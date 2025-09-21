@@ -39,11 +39,6 @@ export const FILE_LIMITS = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   MAX_FILES: 10,
   ALLOWED_TYPES: [
-    'image/jpeg',
-    'image/jpg',
-    'image/png', 
-    'image/gif',
-    'image/webp',
     'application/pdf'
   ]
 } as const;

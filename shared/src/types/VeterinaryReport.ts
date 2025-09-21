@@ -114,6 +114,7 @@ export interface ReportStats {
 export interface UploadResult {
   id?: string;
   filename: string;
+  originalFilename?: string; // Nombre original del archivo antes de normalización
   url: string;
   status: 'uploaded' | 'processing' | 'completed' | 'error';
   publicId?: string;
