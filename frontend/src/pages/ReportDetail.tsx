@@ -483,7 +483,7 @@ export function ReportDetail() {
                 <div>
                   <CardTitle className="text-lg">Texto Extraído</CardTitle>
                   <CardDescription>
-                    Texto completo extraído del documento mediante OCR
+                    Texto completo extraído del documento
                   </CardDescription>
                 </div>
               </div>

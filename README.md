@@ -23,7 +23,6 @@ diagnoVET es una solución completa que permite a los veterinarios subir reporte
 - **Vite** - Build tool y dev server
 - **Tailwind CSS** - Estilos utilitarios
 - **Shadcn/ui** - Componentes de UI
-- **Zustand** - Estado global
 
 ### Backend
 - **Node.js** - Runtime de JavaScript
@@ -121,7 +120,6 @@ diagnovet-challenge/
 │   │   │   ├── utils/       # Funciones utilitarias
 │   │   │   ├── constants/   # Constantes compartidas
 │   │   │   └── validators/  # Esquemas Zod (fuente única de verdad)
-│   │   ├── store/           # Estado global (Zustand)
 │   │   ├── utils/           # Funciones auxiliares
 │   │   └── lib/             # Configuraciones
 │   ├── package.json

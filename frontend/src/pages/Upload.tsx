@@ -205,7 +205,7 @@ export function Upload() {
       case 'uploading':
         return 'Subiendo...'
       case 'processing':
-        return processingStatus === 'PROCESSING' ? 'Procesando OCR...' : 
+        return processingStatus === 'PROCESSING' ? 'Procesando documento con IA...' : 
                processingStatus === 'NEEDS_REVIEW' ? 'Revisión necesaria' :
                'Procesando...'
       case 'completed':
