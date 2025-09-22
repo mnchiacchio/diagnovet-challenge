@@ -1,7 +1,7 @@
 import { prisma } from '../index';
 import { CreateReportDto, UpdateReportDto } from '../models/ReportDto';
-import { ProcessingStatus } from '@prisma/client';
-import { ReportFilters, ReportQueryParams, PaginatedResponse, ReportStats, VeterinaryReportWithRelations } from '../types/prisma';
+// import { ProcessingStatus } from '@prisma/client';
+import { ReportFilters, ReportQueryParams, PaginatedResponse, ReportStats, VeterinaryReportWithRelations, ProcessingStatus } from '../types/prisma';
 import { logger } from '../utils/Logger';
 
 export class ReportService {
