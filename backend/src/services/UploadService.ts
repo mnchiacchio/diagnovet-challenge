@@ -145,8 +145,8 @@ export class UploadService {
       
       const updatedReport = await this.reportService.updateReport(reportId, {
         extractedText: pdfResult.text,
-        findings: extractedData.findings || '',
-        diagnosis: extractedData.diagnosis || '',
+        findings: this.extractTextValue(extractedData.findings) || '',
+        diagnosis: this.extractTextValue(extractedData.diagnosis) || '',
         differentials: extractedData.differentials || [],
         recommendations: extractedData.recommendations || [],
         measurements: extractedData.measurements || {},
@@ -241,7 +241,7 @@ export class UploadService {
     };
   }
 
-  // Extraer un solo valor de un campo que puede ser string o array
+  // Extraer un solo valor de un campo que debe ser único (paciente, veterinario)
   private extractSingleValue(value: string | string[] | null | undefined): string | null {
     if (!value) {
       return null;
@@ -251,6 +251,26 @@ export class UploadService {
       // Si es un array, tomar el primer elemento no vacío
       const firstValue = value.find(item => item && item.trim() !== '');
       return firstValue || null;
+    }
+    
+    return value;
+  }
+
+  // Extraer texto concatenado de un campo que puede tener múltiples elementos (diagnóstico, hallazgos)
+  private extractTextValue(value: string | string[] | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+    
+    if (Array.isArray(value)) {
+      // Si es un array, concatenar todos los elementos no vacíos
+      const validValues = value.filter(item => item && item.trim() !== '');
+      if (validValues.length === 0) {
+        return null;
+      }
+      
+      // Concatenar con separador apropiado
+      return validValues.join('; ');
     }
     
     return value;
