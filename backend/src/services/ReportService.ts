@@ -330,6 +330,20 @@ export class ReportService {
       if (veterinarianId !== currentReport.veterinarianId) updateData.veterinarianId = veterinarianId;
       if (studyId !== currentReport.studyId) updateData.studyId = studyId;
 
+      /* logger.debug('Datos para actualizar reporte:', {
+        reportId: id,
+        updateData: {
+          ...updateData,
+          // Logging específico de campos problemáticos
+          measurementsType: typeof updateData.measurements,
+          measurementsValue: updateData.measurements,
+          differentialsType: typeof updateData.differentials,
+          differentialsValue: updateData.differentials,
+          recommendationsType: typeof updateData.recommendations,
+          recommendationsValue: updateData.recommendations
+        }
+      }); */
+
       return await prisma.veterinaryReport.update({
         where: { id },
         data: updateData,
@@ -340,8 +354,23 @@ export class ReportService {
         }
       });
     } catch (error) {
-      logger.error('Error al actualizar reporte:', error);
-      throw new Error('Error al actualizar el reporte');
+      // Logging mejorado para errores de Prisma
+      const errorInfo = {
+        message: error instanceof Error ? error.message : 'Error desconocido',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'UnknownError',
+        type: typeof error,
+        stringified: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+        // Información específica de Prisma
+        prismaError: error instanceof Error && error.name === 'PrismaClientValidationError' ? {
+          code: (error as any).code,
+          meta: (error as any).meta,
+          clientVersion: (error as any).clientVersion
+        } : undefined
+      };
+      
+      logger.error('Error al actualizar reporte:', errorInfo);
+      throw new Error(`Error al actualizar el reporte: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 

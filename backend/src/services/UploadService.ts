@@ -153,28 +153,28 @@ export class UploadService {
         confidence: extractedData.confidence || 0,
         status: (extractedData.confidence || 0) > 80 ? 'COMPLETED' : 'NEEDS_REVIEW',
         patient: {
-          name: extractedData.patient.name || '',
-          species: extractedData.patient.species || '',
-          breed: extractedData.patient.breed || '',
-          age: extractedData.patient.age || '',
-          weight: extractedData.patient.weight || '',
-          owner: extractedData.patient.owner || ''
+          name: this.extractSingleValue(extractedData.patient.name) || '',
+          species: this.extractSingleValue(extractedData.patient.species) || '',
+          breed: this.extractSingleValue(extractedData.patient.breed) || '',
+          age: this.extractSingleValue(extractedData.patient.age) || '',
+          weight: this.extractSingleValue(extractedData.patient.weight) || '',
+          owner: this.extractSingleValue(extractedData.patient.owner) || ''
         },
         veterinarian: {
-          name: extractedData.veterinarian.name || '',
-          license: extractedData.veterinarian.license || '',
-          title: extractedData.veterinarian.title || '',
-          clinic: extractedData.veterinarian.clinic || '',
-          contact: extractedData.veterinarian.contact || '',
-          referredBy: extractedData.veterinarian.referredBy || ''
+          name: this.extractSingleValue(extractedData.veterinarian.name) || '',
+          license: this.extractSingleValue(extractedData.veterinarian.license) || '',
+          title: this.extractSingleValue(extractedData.veterinarian.title) || '',
+          clinic: this.extractSingleValue(extractedData.veterinarian.clinic) || '',
+          contact: this.extractSingleValue(extractedData.veterinarian.contact) || '',
+          referredBy: this.extractSingleValue(extractedData.veterinarian.referredBy) || ''
         },
         study: {
-          type: extractedData.study?.type || '',
-          date: extractedData.study?.date || '',
-          technique: extractedData.study?.technique || '',
-          bodyRegion: extractedData.study?.bodyRegion || '',
-          incidences: extractedData.study?.incidences || [],
-          equipment: extractedData.study?.equipment || '',
+          type: this.extractSingleValue(extractedData.study?.type) || '',
+          date: this.formatDateForPrisma(this.extractSingleValue(extractedData.study?.date)),
+          technique: this.extractSingleValue(extractedData.study?.technique) || '',
+          bodyRegion: this.extractSingleValue(extractedData.study?.bodyRegion) || '',
+          incidences: Array.isArray(extractedData.study?.incidences) ? extractedData.study.incidences : [],
+          equipment: this.extractSingleValue(extractedData.study?.equipment) || '',
           echoData: extractedData.study?.echoData || {}
         }
       });
@@ -239,6 +239,69 @@ export class UploadService {
       createdAt: report.createdAt,
       updatedAt: report.updatedAt
     };
+  }
+
+  // Extraer un solo valor de un campo que puede ser string o array
+  private extractSingleValue(value: string | string[] | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+    
+    if (Array.isArray(value)) {
+      // Si es un array, tomar el primer elemento no vacío
+      const firstValue = value.find(item => item && item.trim() !== '');
+      return firstValue || null;
+    }
+    
+    return value;
+  }
+
+  // Formatear fecha string a ISO string para Prisma
+  private formatDateForPrisma(dateString: string | null | undefined): string | undefined {
+    if (!dateString || dateString.trim() === '') {
+      return undefined;
+    }
+
+    try {
+      // Si ya es una fecha ISO válida
+      if (dateString.includes('-') && dateString.length === 10) {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString();
+        }
+      }
+
+      // Si es formato DD/MM/YYYY (formato argentino)
+      const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+      const match = dateString.trim().match(dateRegex);
+      
+      if (match) {
+        const day = match[1].padStart(2, '0');
+        const month = match[2].padStart(2, '0');
+        const year = match[3];
+        
+        // Crear fecha en formato ISO (YYYY-MM-DD)
+        const isoDate = `${year}-${month}-${day}`;
+        const date = new Date(isoDate);
+        
+        if (!isNaN(date.getTime())) {
+          return date.toISOString();
+        }
+      }
+
+      // Intentar parsear como fecha estándar
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+
+      logger.warn('No se pudo parsear la fecha:', dateString);
+      return undefined;
+      
+    } catch (error) {
+      logger.error('Error al parsear fecha:', error);
+      return undefined;
+    }
   }
 
   // Obtener reporte por ID
