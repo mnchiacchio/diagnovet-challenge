@@ -27,7 +27,7 @@ try {
 }
 
 const app = express();
-const PORT = process.env.API_PORT || 5000;
+const PORT = parseInt(process.env.PORT || process.env.API_PORT || '5000', 10);
 
 // Inicializar Prisma
 export const prisma = new PrismaClient();
@@ -67,7 +67,7 @@ app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);
 
 // Iniciar servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor backend ejecutándose en puerto ${PORT}`);
   console.log(`📊 Base de datos: ${process.env.DATABASE_URL ? 'Conectada' : 'No configurada'}`);
 });
