@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ReportService } from '@/services/ReportService'
-import { ReportStats, VeterinaryReportWithTimestamps } from '@shared/types/VeterinaryReport'
+import { ReportStats, VeterinaryReportWithTimestamps } from '@/shared/types/VeterinaryReport'
 import { useNavigate } from 'react-router-dom'
 
 export function Dashboard() {

@@ -6,8 +6,8 @@ import { useToast } from '@/hooks/use-toast'
 
 // Services and Types
 import { ReportService } from '@/services/ReportService'
-import { UpdateReportSchema } from '@shared/validators/reportValidators'
-import type { VeterinaryReportWithTimestamps } from '@shared/types/VeterinaryReport'
+import { UpdateReportSchema } from '@/shared/validators/reportValidators'
+import type { VeterinaryReportWithTimestamps } from '@/shared/types/VeterinaryReport'
 
 // Esquema de validación para el formulario de edición
 const EditReportFormSchema = UpdateReportSchema.extend({

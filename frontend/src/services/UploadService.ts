@@ -1,5 +1,5 @@
-import { API_BASE_URL, API_ENDPOINTS } from '@shared/constants/apiEndpoints'
-import { ApiResponse, UploadResult, ProcessingResult } from '@shared/types/VeterinaryReport'
+import { API_BASE_URL, API_ENDPOINTS } from '@/shared/constants/apiEndpoints'
+import { ApiResponse, UploadResult, ProcessingResult } from '@/shared/types/VeterinaryReport'
 
 export class UploadService {
   private static baseUrl = API_BASE_URL

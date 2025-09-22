@@ -116,8 +116,12 @@ diagnovet-challenge/
 │   │   ├── pages/           # Páginas de la aplicación
 │   │   ├── hooks/           # Custom React hooks
 │   │   ├── services/        # Llamadas a API
+│   │   ├── shared/          # Tipos, validadores y utilidades compartidas
+│   │   │   ├── types/       # Tipos TypeScript derivados de validadores
+│   │   │   ├── utils/       # Funciones utilitarias
+│   │   │   ├── constants/   # Constantes compartidas
+│   │   │   └── validators/  # Esquemas Zod (fuente única de verdad)
 │   │   ├── store/           # Estado global (Zustand)
-│   │   ├── types/           # Definiciones TypeScript
 │   │   ├── utils/           # Funciones auxiliares
 │   │   └── lib/             # Configuraciones
 │   ├── package.json
@@ -138,14 +142,7 @@ diagnovet-challenge/
 │   ├── prisma/
 │   │   └── schema.prisma    # Esquema de base de datos
 │   ├── package.json
-│   └── tsconfig.json
-├── shared/                   # Tipos y utilidades compartidas (solo frontend)
-│   ├── src/
-│   │   ├── types/           # Tipos TypeScript derivados de validadores
-│   │   ├── utils/           # Funciones utilitarias
-│   │   ├── constants/       # Constantes compartidas
-│   │   └── validators/      # Esquemas Zod (fuente única de verdad)
-│   ├── package.json
+│   ├── railway.json         # Configuración de Railway
 │   └── tsconfig.json
 ├── .cursor/
 │   └── rules/
@@ -162,25 +159,20 @@ diagnovet-challenge/
 ### Scripts Principales
 ```bash
 npm run dev              # Ejecutar frontend y backend en desarrollo
-npm run build           # Construir shared, backend y frontend
+npm run build           # Construir backend y frontend
 npm run install:all     # Instalar todas las dependencias
 ```
 
 ### Scripts de Frontend
 ```bash
 npm run dev:frontend    # Ejecutar solo frontend
-npm run build:frontend  # Construir frontend (requiere shared)
+npm run build:frontend  # Construir frontend
 ```
 
 ### Scripts de Backend
 ```bash
 npm run dev:backend     # Ejecutar solo backend
 npm run build:backend   # Construir backend (independiente)
-```
-
-### Scripts de Shared
-```bash
-npm run build:shared    # Construir paquete shared
 ```
 
 ### Scripts de Base de Datos
@@ -230,7 +222,6 @@ La aplicación utiliza inteligencia artificial para extraer automáticamente inf
 ```bash
 # Verificar que todos los builds funcionan
 npm run install:all
-npm run build:shared
 npm run build:backend
 npm run build:frontend
 ```

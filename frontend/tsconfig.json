@@ -19,12 +19,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/src/*"]
+      "@/shared/*": ["./src/shared/*"]
     }
   },
   "include": [
-    "src",
-    "../shared/src"
+    "src"
   ],
   "references": [
     {

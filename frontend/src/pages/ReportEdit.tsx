@@ -17,7 +17,7 @@ import { StatusForm } from '@/components/forms/StatusForm'
 import { OriginalTextForm } from '@/components/forms/OriginalTextForm'
 import { FormActions } from '@/components/forms/FormActions'
 
-import type { ProcessingStatus } from '@shared/types/VeterinaryReport'
+import type { ProcessingStatus } from '@/shared/types/VeterinaryReport'
 
 /**
  * Página principal de edición de reportes
