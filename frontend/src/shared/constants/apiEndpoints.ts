@@ -1,6 +1,27 @@
 // Constantes para endpoints de la API
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+// Función para construir la URL base de la API
+const getApiBaseUrl = () => {
+  let envUrl = import.meta.env.VITE_API_URL;
+  // Verificar si la URL termina con /api/v1
+  if (envUrl && !envUrl.endsWith('/api/v1')) {
+    envUrl = `${envUrl}/api/v1`;
+  }
+  
+  // Si la URL del entorno no incluye protocolo, agregarlo
+  if (envUrl && !envUrl.startsWith('http://') && !envUrl.startsWith('https://')) {
+    envUrl = `https://${envUrl}`;
+  }
+  
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  // Fallback para desarrollo local
+  return 'http://localhost:5000/api/v1';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const API_ENDPOINTS = {
   // Reportes
