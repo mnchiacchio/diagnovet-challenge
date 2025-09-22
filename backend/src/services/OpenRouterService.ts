@@ -8,70 +8,124 @@ export class OpenRouterService implements ILLMService {
   private apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
   private token = process.env.OPENROUTER_API_KEY;
   private model = process.env.OPENROUTER_MODEL;
+  private httpReferer = process.env.HTTP_REFERER || process.env.BASE_URL || 'https://diagnovet-challenge-frontend.vercel.app/';
 
   // Extraer datos estructurados de un reporte veterinario
   async extractVeterinaryData(text: string): Promise<LLMExtractionResult> {
     try {
       logger.debug('Enviando texto a OpenRouter para extracción de datos');
       
+      // Validar variables de entorno
       if (!this.token) {
-        throw new Error('OPENROUTER_API_KEY no configurada');
+        throw new Error('OPENROUTER_API_KEY no configurada en variables de entorno');
       }
+      
+      if (!this.model) {
+        throw new Error('OPENROUTER_MODEL no configurado en variables de entorno');
+      }
+      
+      if (!text || text.trim().length === 0) {
+        throw new Error('El texto a procesar está vacío');
+      }
+      
+      logger.debug('Configuración validada:', {
+        hasToken: !!this.token,
+        model: this.model,
+        textLength: text.length
+      });
 
       const prompt = this.buildPrompt(text);
       
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'http://localhost:5000', // Opcional: para tracking
-          'X-Title': 'DiagnoVET', // Opcional: nombre de la app
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Eres un experto en extracción de datos de reportes veterinarios. Extrae la información de forma precisa y estructurada en formato JSON.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 1500,
-          temperature: 0.1,
-          top_p: 0.9,
-          frequency_penalty: 0.1,
-          presence_penalty: 0.1
-        })
-      });
+      // Configurar timeout para la petición
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
+      
+      try {
+        const response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.token}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': this.httpReferer, // URL dinámica según el entorno
+            'X-Title': 'DiagnoVET', // Opcional: nombre de la app
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [
+              {
+                role: 'system',
+                content: 'Eres un experto en extracción de datos de reportes veterinarios. Extrae la información de forma precisa y estructurada en formato JSON.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 1500,
+            temperature: 0.1,
+            top_p: 0.9,
+            frequency_penalty: 0.1,
+            presence_penalty: 0.1
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        logger.debug('Respuesta recibida de OpenRouter:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error en API de OpenRouter: ${response.status} - ${errorText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Error en API de OpenRouter: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        if (!result || !result.choices || !result.choices[0] || !result.choices[0].message) {
+          throw new Error('Respuesta inválida de OpenRouter');
+        }
+
+        const generatedText = result.choices[0].message.content;
+        const extractedData = this.parseLLMResponse(generatedText);
+        
+        logger.info('Datos extraídos exitosamente por OpenRouter');
+        
+        return {
+          success: true,
+          data: extractedData,
+          confidence: 90 // Alta confianza para modelos de OpenRouter
+        };
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Timeout: La petición a OpenRouter tardó más de 30 segundos');
+        }
+        
+        if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+          throw new Error(`Error de red al conectar con OpenRouter: ${fetchError.message}`);
+        }
+        
+        throw fetchError; // Re-lanzar otros errores
       }
-
-      const result = await response.json();
-      
-      if (!result || !result.choices || !result.choices[0] || !result.choices[0].message) {
-        throw new Error('Respuesta inválida de OpenRouter');
-      }
-
-      const generatedText = result.choices[0].message.content;
-      const extractedData = this.parseLLMResponse(generatedText);
-      
-      logger.info('Datos extraídos exitosamente por OpenRouter');
-      
-      return {
-        success: true,
-        data: extractedData,
-        confidence: 90 // Alta confianza para modelos de OpenRouter
-      };
 
     } catch (error) {
-      logger.error('Error en OpenRouter:', error);
+      // Logging mejorado para capturar información detallada del error
+      const errorInfo = {
+        message: error instanceof Error ? error.message : 'Error desconocido',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'UnknownError',
+        type: typeof error,
+        stringified: JSON.stringify(error, Object.getOwnPropertyNames(error))
+      };
+      
+      logger.error('Error en OpenRouter:', errorInfo);
+      
       return {
         success: false,
         data: null,
@@ -256,7 +310,7 @@ IMPORTANTE:
         headers: {
           'Authorization': `Bearer ${this.token}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'http://localhost:5000',
+          'HTTP-Referer': this.httpReferer,
           'X-Title': 'DiagnoVET',
         },
         body: JSON.stringify({

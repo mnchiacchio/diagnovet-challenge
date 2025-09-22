@@ -198,12 +198,26 @@ export class UploadService {
         }
       };
     } catch (error) {
-      logger.error('Error al procesar archivo:', error);
+      // Logging mejorado para capturar información detallada del error
+      const errorInfo = {
+        reportId,
+        message: error instanceof Error ? error.message : 'Error desconocido',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'UnknownError',
+        type: typeof error,
+        stringified: JSON.stringify(error, Object.getOwnPropertyNames(error))
+      };
       
-      // Actualizar estado a error
-      await this.reportService.updateReport(reportId, {
-        status: 'ERROR'
-      });
+      logger.error('Error al procesar archivo:', errorInfo);
+      
+      try {
+        // Actualizar estado a error
+        await this.reportService.updateReport(reportId, {
+          status: 'ERROR'
+        });
+      } catch (updateError) {
+        logger.error('Error al actualizar estado del reporte a ERROR:', updateError);
+      }
 
       throw error;
     }
