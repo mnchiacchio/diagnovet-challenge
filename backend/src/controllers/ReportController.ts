@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ReportService } from '../services/ReportService';
 import { CreateReportDto, UpdateReportDto } from '../models/ReportDto';
 import { ReportQueryParams } from '../types/prisma';
-import { logger } from '@backend/utils/Logger';
+import { logger } from '../utils/Logger';
 
 export class ReportController {
   private reportService = new ReportService();
