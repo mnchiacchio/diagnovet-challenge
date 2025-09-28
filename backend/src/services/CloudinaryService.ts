@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryConfig } from '../config/cloudinary';
+import { config } from '../config/index';
 import { logger } from '../utils/Logger';
 
 // Interfaz para el resultado de upload de Cloudinary
@@ -19,9 +19,9 @@ export class CloudinaryService {
   constructor() {
     // Configurar Cloudinary
     cloudinary.config({
-      cloud_name: CloudinaryConfig.cloudName,
-      api_key: CloudinaryConfig.apiKey,
-      api_secret: CloudinaryConfig.apiSecret
+      cloud_name: config.cloudinary.cloudName,
+      api_key: config.cloudinary.apiKey,
+      api_secret: config.cloudinary.apiSecret
     });
   }
 
